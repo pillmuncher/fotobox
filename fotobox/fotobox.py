@@ -22,6 +22,12 @@ from rx.subjects import Subject
 from rx.concurrency import EventLoopScheduler, ThreadPoolScheduler
 
 
+def const(x):
+    def ignore(*args, **kwargs):
+        return x
+    return ignore
+
+
 def flip(f):
     def flipped(*args):
         return f(*reversed(args))
@@ -165,23 +171,21 @@ def make_collage(margin, background, img11, img12, img21, img22):
     return collage
 
 
-ButtonPressed = namedtuple('ButtonPressed', 'port hold time')
-ButtonReleased = namedtuple('ButtonReleased', 'port time')
-ButtonPushed = namedtuple('ButtonPushed', 'port duration pressed released')
+ButtonPressed = namedtuple('ButtonPressed', 'command time')
+ButtonReleased = namedtuple('ButtonReleased', 'time')
+ButtonPushed = namedtuple('ButtonPushed', 'command pressed released')
 
 is_pressed = inject(isinstance, ButtonPressed)
 is_released = inject(isinstance, ButtonReleased)
 is_pushed = inject(isinstance, ButtonPushed)
 
 Log = namedtuple('Log', 'text')
-Shoot = namedtuple('Shoot', '')
-Reset = namedtuple('Reset', '')
-Quit = namedtuple('Quit', '')
-Reboot = namedtuple('Reboot', '')
-Shutdown = namedtuple('Shutdown', '')
+Shoot = namedtuple('Shoot', 'event')
+Reset = namedtuple('Reset', 'event')
+Quit = namedtuple('Quit', 'event')
 CreateCollage = namedtuple('CreateCollage', 'imgs time')
-ShowRandomMontage = namedtuple('ShowRandomMontage', 'num')
-Blink = namedtuple('Blink', 'num')
+ShowRandomMontage = namedtuple('ShowRandomMontage', '')
+Blink = namedtuple('Blink', 'action')
 
 
 @singledispatch
@@ -239,17 +243,7 @@ def handle_reset(cmd, conf):
 
 @handle_command.register(Quit)
 def handle_quit(cmd, conf):
-    conf.exit_code.put(conf.event.quit.code)
-
-
-@handle_command.register(Reboot)
-def handle_reboot(cmd, conf):
-    conf.exit_code.put(conf.event.reboot.code)
-
-
-@handle_command.register(Shutdown)
-def handle_shut_down(cmd, conf):
-    conf.exit_code.put(conf.event.shutdown.code)
+    conf.exit_code.put(cmd.event.code)
 
 
 @handle_command.register(CreateCollage)
@@ -283,40 +277,36 @@ def handle_show_random_montage(cmd, conf):
 
 @handle_command.register(Blink)
 def handle_blink(cmd, conf):
-    if cmd.num % 2:
-        switch_on(conf.led.status)
-    else:
-        switch_off(conf.led.status)
+    cmd.action(conf.led.status)
 
 
 class Button(Subject):
 
-    def __init__(self, port, hold, bounce_time):
-        super(Button, self).__init__()
-        self._port = port
-        self._hold = hold
-        GPIO.setup(port, GPIO.IN)
+    def __init__(self, command, bounce_time):
+        Subject.__init__(self)
+        self._command = command
+        GPIO.setup(command.event.port, GPIO.IN)
         GPIO.add_event_detect(
-            port,
+            command.event.port,
             GPIO.BOTH,
             bouncetime=bounce_time,
             callback=self._handle)
 
     def _handle(self, port):
         if GPIO.input(port):
-            self.on_next(ButtonPressed(port, self._hold, time.time()))
+            self.on_next(ButtonPressed(self._command, time.time()))
         else:
-            self.on_next(ButtonReleased(port, time.time()))
+            self.on_next(ButtonReleased(time.time()))
 
     def dispose(self):
-        GPIO.remove_event_detect(self._port)
-        super(Button, self).dispose()
+        GPIO.remove_command_detect(self._command.event.port)
+        Subject.dispose(self)
 
 
 def detect_push(prev, curr):
     assert prev.time <= curr.time
     if is_pressed(prev) and is_released(curr):
-        return ButtonPushed(prev.port, prev.hold, prev.time, curr.time)
+        return ButtonPushed(prev.command, prev.time, curr.time)
     else:
         return curr
 
@@ -329,22 +319,25 @@ def non_overlapping(prev, curr):
         return prev
 
 
-def to_command(pushed, conf):
-    command, info = conf.port_data[pushed.port]
-    if pushed.duration >= pushed.released - pushed.pressed:
-        return command
+def to_command(pushed):
+    if pushed.command.event.hold >= pushed.released - pushed.pressed:
+        return pushed.command
     else:
-        return info
+        return Log(pushed.command.event.info)
 
 
-def make_button(event, bounce_time, scheduler):
+def prepare_button(button, scheduler):
     return (
         Observable
-        .using(scheduler, Button(event.port, event.hold, bounce_time))
+        .using(scheduler, button)
         .scan(detect_push)
         .where(is_pushed)
         .distinct_until_changed()
     )
+
+
+def make_blink(n):
+    return Blink(switch_on if n % 2 else switch_off)
 
 
 def main(conf):
@@ -367,43 +360,37 @@ def main(conf):
         GPIO.setup(light, GPIO.OUT)
     switch_on(conf.led.green)
     conf.exit_code = queue.Queue(maxsize=1)
-    conf.port_data = {
-        conf.event.shoot.port: (Shoot(), Log(conf.event.shoot.info)),
-        conf.event.reset.port: (Reset(), Log(conf.event.reset.info)),
-        conf.event.quit.port: (Quit(), Log(conf.event.quit.info)),
-        conf.event.reboot.port: (Reboot(), Log(conf.event.reboot.info)),
-        conf.event.shutdown.port: (Shutdown(), Log(conf.event.shutdown.info)),
-    }
-    sched = EventLoopScheduler()
-    buttons = [
-        make_button(conf.event.shoot, conf.etc.bounce_time, sched),
-        make_button(conf.event.reset, conf.etc.bounce_time, sched),
-        make_button(conf.event.quit, conf.etc.bounce_time, sched),
-        make_button(conf.event.reboot, conf.etc.bounce_time, sched),
-        make_button(conf.event.shutdown, conf.etc.bounce_time, sched),
-    ]
+    buttons = (
+        Button(Shoot(conf.event.shoot), conf.etc.bounce_time),
+        Button(Reset(conf.event.reset), conf.etc.bounce_time),
+        Button(Quit(conf.event.quit), conf.etc.bounce_time),
+        Button(Quit(conf.event.reboot), conf.etc.bounce_time),
+        Button(Quit(conf.event.shutdown), conf.etc.bounce_time),
+    )
     conf.bus = Subject()
-    montage = Observable.interval(conf.montage.interval).map(ShowRandomMontage)
-    blinking = Observable.interval(conf.blink.interval).map(Blink)
-    (
-        Observable
-        .merge(*buttons)
+    montage = Observable.interval(conf.montage.interval)
+    blinking = Observable.interval(conf.blink.interval)
+    message_sched = EventLoopScheduler()
+    command_sched = ThreadPoolScheduler(max_workers=conf.etc.workers),
+    (Observable
+        .merge([prepare_button(button, message_sched) for button in buttons])
         .scan(non_overlapping, seed=ButtonPushed(None, None, 0, 0))
         .distinct_until_changed()
-        .map(inject(to_command, conf))
+        .map(to_command)
         .merge(
-            ThreadPoolScheduler(max_workers=conf.etc.workers),
-            montage, blinking, conf.bus)
-        .subscribe(on_next=inject(handle_command, conf))
-    )
+            command_sched,
+            conf.bus,
+            montage.map(const(ShowRandomMontage())),
+            blinking.map(make_blink))
+        .subscribe(on_next=inject(handle_command, conf)))
     try:
         return conf.exit_code.get()
     finally:
         blinking.dispose()
         montage.dispose()
         conf.bus.dispose()
-        for each in buttons:
-            each.dispose()
+        for button in buttons:
+            button.dispose()
         conf.led.status = None
         lightshow(1, conf)
         time.sleep(3)
