@@ -15,7 +15,7 @@ import pygame
 import RPi.GPIO as GPIO
 
 from collections import namedtuple
-from functools import partial, singledispatch
+from functools import singledispatch
 
 from rx import Observable
 from rx.subjects import Subject
@@ -26,6 +26,23 @@ def flip(f):
     def flipped(*args):
         return f(*reversed(args))
     return flipped
+
+
+def apply(f, *args, **kwargs):
+    return f(*args, **kwargs)
+
+
+rapply = flip(apply)
+
+
+def thread_thru(v, *fs):
+    return reduce(rapply, fs, v)
+
+
+def inject(f, *args, **kwargs):
+    def inj(x):
+        return f(x, *args, **kwargs)
+    return inj
 
 
 def switch_on(pin):
@@ -152,9 +169,9 @@ ButtonPressed = namedtuple('ButtonPressed', 'port hold time')
 ButtonReleased = namedtuple('ButtonReleased', 'port time')
 ButtonPushed = namedtuple('ButtonPushed', 'port duration pressed released')
 
-is_pressed = partial(flip(isinstance), ButtonPressed)
-is_released = partial(flip(isinstance), ButtonReleased)
-is_pushed = partial(flip(isinstance), ButtonPushed)
+is_pressed = inject(isinstance, ButtonPressed)
+is_released = inject(isinstance, ButtonReleased)
+is_pushed = inject(isinstance, ButtonPushed)
 
 Log = namedtuple('Log', 'text')
 Shoot = namedtuple('Shoot', '')
@@ -253,11 +270,15 @@ def handle_create_collage(cmd, conf):
 
 @handle_command.register(ShowRandomMontage)
 def handle_show_random_montage(cmd, conf):
-    file_mask = conf.montage.full_mask.format('*')
-    file_names = glob.glob(file_mask)
-    file_name = random.choice(file_names)
-    image = pygame.image.load(file_name)
-    show_image(pygame.transform.scale(image, conf.screen.size), conf)
+    thread_thru(
+        '*',
+        conf.montage.full_mask.format,
+        glob.glob,
+        random.choice,
+        pygame.image.load,
+        inject(pygame.transform.scale, conf.screen.size),
+        inject(show_image, conf),
+    )
 
 
 @handle_command.register(Blink)
@@ -369,11 +390,11 @@ def main(conf):
         .merge(*buttons)
         .scan(non_overlapping, seed=ButtonPushed(None, None, 0, 0))
         .distinct_until_changed()
-        .map(partial(flip(to_command), conf))
+        .map(inject(to_command, conf))
         .merge(
             ThreadPoolScheduler(max_workers=conf.etc.workers),
             montage, blinking, conf.bus)
-        .subscribe(on_next=partial(flip(handle_command), conf))
+        .subscribe(on_next=inject(handle_command, conf))
     )
     try:
         return conf.exit_code.get()
