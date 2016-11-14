@@ -9,7 +9,7 @@ import queue
 import random
 import time
 
-# import picamera
+import picamera
 import PIL.Image
 import pygame
 import RPi.GPIO as GPIO
@@ -76,7 +76,7 @@ def stop_sound():
     pygame.mixer.music.stop()
 
 
-def show_overlay(self, file_name, position, seconds, conf):
+def show_overlay(file_name, position, seconds, conf):
     img = PIL.Image.open(os.path.join(conf.etc.path, file_name))
     pad = PIL.Image.new('RGB', (
         ((img.size[0] + 31) // 32) * 32,
@@ -88,6 +88,33 @@ def show_overlay(self, file_name, position, seconds, conf):
     overlay.layer = 3
     time.sleep(seconds)
     conf.camera.remove_overlay(overlay)
+
+
+def count_down(n, conf):
+    show_overlay(
+        conf.etc.prepare.full_image_mask.format(n),
+        conf.etc.prepare.image_position,
+        2,
+        conf,
+    )
+    for i in [3, 2, 1]:
+        play_sound(conf.etc.countdown.full_sound_mask.format(i))
+        show_overlay(
+            conf.etc.countdown.full_image_mask.format(i),
+            conf.etc.countdown.image_position,
+            1,
+            conf,
+        )
+    if conf.etc.songs.enabled:
+        file_names = glob.glob(conf.etc.songs.mask)
+        file_name = random.choice(file_names)
+        play_sound(file_name)
+    show_overlay(
+        conf.etc.smile.full_image_file,
+        conf.etc.smile.image_position,
+        1.5,
+        conf,
+    )
 
 
 def make_collage(margin, background, img11, img12, img21, img22):
@@ -135,9 +162,7 @@ Reset = namedtuple('Reset', '')
 Quit = namedtuple('Quit', '')
 Reboot = namedtuple('Reboot', '')
 Shutdown = namedtuple('Shutdown', '')
-CountDown = namedtuple('CountDown', 'nums')
 CreateCollage = namedtuple('CreateCollage', 'imgs time')
-CreateMontage = namedtuple('CreateMontage', 'file_names')
 ShowRandomMontage = namedtuple('ShowRandomMontage', 'num')
 Blink = namedtuple('Blink', 'num')
 
@@ -154,7 +179,40 @@ def handle_log(cmd, conf):
 
 @handle_command.register(Shoot)
 def handle_shoot(cmd, conf):
-    pass
+    timestamp = time.strftime(conf.photo.time_mask)
+    photo_file_mask = conf.photo.file_mask.format(timestamp)
+    photo_file_names = conf.camera.capture_continuous(
+        photo_file_mask,
+        resize=conf.photo.size,
+    )
+    montage = conf.montage.image.copy()
+    imgs = []
+    conf.led.status = conf.led.red
+    lights_on(conf.photo.lights)
+    conf.camera.start_preview(hflip=True)
+    for i in xrange(conf.montage.number_of_photos):
+        count_down(i + 1, conf)
+        photo_file_name = next(photo_file_names)
+        imgs.append(PIL.Image.open(photo_file_name))
+        montage.paste(
+            PIL.Image
+            .open(photo_file_name)
+            .convert('RGBA')
+            .resize(conf.montage.photo.size),
+            conf.montage.photo.box[i],
+        )
+        time.sleep(5.0)
+    conf.camera.stop_preview()
+    lights_off(conf.photo.lights)
+    conf.led.status = conf.led.yellow
+    show_image(pygame.image.load(conf.etc.black.full_image_file), conf)
+    montage_file_name = conf.montage.full_mask.format(timestamp)
+    (PIL.Image
+        .blend(montage, conf.etc.watermark.image, .25)
+        .save(montage_file_name))
+    show_image(pygame.image.load(montage_file_name), conf)
+    conf.bus.on_next(CreateCollage(imgs, timestamp))
+    time.sleep(conf.montage.interval)
 
 
 @handle_command.register(Reset)
@@ -164,22 +222,17 @@ def handle_reset(cmd, conf):
 
 @handle_command.register(Quit)
 def handle_quit(cmd, conf):
-    pass
+    conf.exit_code.put(conf.event.quit.code)
 
 
 @handle_command.register(Reboot)
 def handle_reboot(cmd, conf):
-    pass
+    conf.exit_code.put(conf.event.reboot.code)
 
 
 @handle_command.register(Shutdown)
 def handle_shut_down(cmd, conf):
-    pass
-
-
-@handle_command.register(CountDown)
-def handle_countdown(cmd, conf):
-    pass
+    conf.exit_code.put(conf.event.shutdown.code)
 
 
 @handle_command.register(CreateCollage)
@@ -196,11 +249,6 @@ def handle_create_collage(cmd, conf):
     printout.paste(collage, (0, 0))
     printout.paste(conf.collage.logo, (width, 0))
     printout.save(conf.collage.full_mask.format(cmd.time))
-
-
-@handle_command.register(CreateMontage)
-def handle_create_montage(cmd, conf):
-    pass
 
 
 @handle_command.register(ShowRandomMontage)
@@ -279,7 +327,32 @@ def make_button(event, bounce_time, scheduler):
 
 
 def main(conf):
+    conf.led.status = conf.led.yellow
+    conf.camera = picamera.PiCamera()
+    conf.camera.capture('/dev/null', 'png')
+    pygame.init()
+    conf.screen = pygame.display.set_mode(
+        conf.screen.size,
+        pygame.FULLSCREEN,
+    )
+    pygame.display.set_caption('Photo Booth Pics')
+    pygame.mouse.set_visible(False)
+    pygame.mixer.pre_init(44100, -16, 1, 1024 * 3)
+    GPIO.setmode(GPIO.BOARD)
+    GPIO.setup(conf.led.green, GPIO.OUT)
+    GPIO.setup(conf.led.yellow, GPIO.OUT)
+    GPIO.setup(conf.led.red, GPIO.OUT)
+    for light in conf.photo.lights:
+        GPIO.setup(light, GPIO.OUT)
+    switch_on(conf.led.green)
     conf.exit_code = queue.Queue(maxsize=1)
+    conf.port_data = {
+        conf.event.shoot.port: (Shoot(), Log(conf.event.shoot.info)),
+        conf.event.reset.port: (Reset(), Log(conf.event.reset.info)),
+        conf.event.quit.port: (Quit(), Log(conf.event.quit.info)),
+        conf.event.reboot.port: (Reboot(), Log(conf.event.reboot.info)),
+        conf.event.shutdown.port: (Shutdown(), Log(conf.event.shutdown.info)),
+    }
     sched = EventLoopScheduler()
     buttons = [
         make_button(conf.event.shoot, conf.etc.bounce_time, sched),
@@ -288,14 +361,9 @@ def main(conf):
         make_button(conf.event.reboot, conf.etc.bounce_time, sched),
         make_button(conf.event.shutdown, conf.etc.bounce_time, sched),
     ]
-    conf.port_data = {
-        conf.event.shoot.port: (Shoot(), Log(conf.event.shoot.info)),
-        conf.event.reset.port: (Reset(), Log(conf.event.reset.info)),
-        conf.event.quit.port: (Quit(), Log(conf.event.quit.info)),
-        conf.event.reboot.port: (Reboot(), Log(conf.event.reboot.info)),
-        conf.event.shutdown.port: (Shutdown(), Log(conf.event.shutdown.info)),
-    }
     conf.bus = Subject()
+    montage = Observable.interval(conf.montage.interval).map(ShowRandomMontage)
+    blinking = Observable.interval(conf.blink.interval).map(Blink)
     (
         Observable
         .merge(*buttons)
@@ -304,15 +372,21 @@ def main(conf):
         .map(partial(flip(to_command), conf))
         .merge(
             ThreadPoolScheduler(max_workers=conf.etc.workers),
-            Observable.interval(conf.montage.interval).map(ShowRandomMontage),
-            Observable.interval(conf.blink.interval).map(Blink),
-            conf.bus
-        )
+            montage, blinking, conf.bus)
         .subscribe(on_next=partial(flip(handle_command), conf))
     )
     try:
         return conf.exit_code.get()
     finally:
+        blinking.dispose()
+        montage.dispose()
+        conf.bus.dispose()
         for each in buttons:
             each.dispose()
-        conf.bus = None
+        conf.led.status = None
+        lightshow(1, conf)
+        time.sleep(3)
+        GPIO.cleanup()
+        pygame.mouse.set_visible(True)
+        pygame.quit()
+        conf.camera.close()
