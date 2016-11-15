@@ -3,6 +3,8 @@
 
 from __future__ import print_function, absolute_import, division
 
+from functools import reduce
+
 
 def const(x):
     def ignore(*args, **kwargs):
