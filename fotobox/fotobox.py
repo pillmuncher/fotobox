@@ -3,6 +3,7 @@
 
 from __future__ import print_function, absolute_import, division
 
+import contextlib
 import functools
 import glob
 import os.path
@@ -305,6 +306,7 @@ class Button(Subject):
         Subject.dispose(self)
 
 
+@contextlib.contextmanager
 def _gpio(conf):
     GPIO.setmode(GPIO.BOARD)
     try:
@@ -318,6 +320,7 @@ def _gpio(conf):
         GPIO.cleanup()
 
 
+@contextlib.contextmanager
 def _pygame(conf):
     pygame.init()
     try:
@@ -332,6 +335,7 @@ def _pygame(conf):
         pygame.quit()
 
 
+@contextlib.contextmanager
 def _picamera(conf):
     conf.camera = picamera.PiCamera()
     try:
@@ -341,29 +345,30 @@ def _picamera(conf):
         conf.camera.close()
 
 
+@contextlib.contextmanager
 def _rx(conf):
     make_button = inject(Button, conf.etc.bounce_time, EventLoopScheduler())
+    buttons = (
+        make_button(Shoot(conf.event.shoot)),
+        make_button(Quit(conf.event.quit)),
+        make_button(Quit(conf.event.reboot)),
+        make_button(Quit(conf.event.shutdown)),
+    )
+    conf.bus = Subject()
+    montage = Observable.interval(conf.montage.interval)
+    blinker = Observable.interval(conf.blink.interval)
+    (Observable
+        .merge([button.pushes for button in buttons])
+        .scan(non_overlapping, seed=ButtonPushed(None, None, 0, 0))
+        .distinct_until_changed()
+        .map(to_command)
+        .merge(
+            ThreadPoolScheduler(max_workers=conf.etc.workers),
+            conf.bus,
+            montage.map(const(ShowRandomMontage())),
+            blinker.map(make_blink))
+        .subscribe(on_next=inject(handle_command, conf)))
     try:
-        buttons = (
-            make_button(Shoot(conf.event.shoot)),
-            make_button(Quit(conf.event.quit)),
-            make_button(Quit(conf.event.reboot)),
-            make_button(Quit(conf.event.shutdown)),
-        )
-        conf.bus = Subject()
-        montage = Observable.interval(conf.montage.interval)
-        blinker = Observable.interval(conf.blink.interval)
-        (Observable
-            .merge([button.pushes for button in buttons])
-            .scan(non_overlapping, seed=ButtonPushed(None, None, 0, 0))
-            .distinct_until_changed()
-            .map(to_command)
-            .merge(
-                ThreadPoolScheduler(max_workers=conf.etc.workers),
-                conf.bus,
-                montage.map(const(ShowRandomMontage())),
-                blinker.map(make_blink))
-            .subscribe(on_next=inject(handle_command, conf)))
         yield
     finally:
         blinker.dispose()
