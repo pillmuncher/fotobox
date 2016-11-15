@@ -305,60 +305,78 @@ class Button(Subject):
         Subject.dispose(self)
 
 
-def set_up(conf):
+def _gpio(conf):
     GPIO.setmode(GPIO.BOARD)
-    GPIO.setup(conf.led.green, GPIO.OUT)
-    GPIO.setup(conf.led.yellow, GPIO.OUT)
-    GPIO.setup(conf.led.red, GPIO.OUT)
-    for light in conf.photo.lights:
-        GPIO.setup(light, GPIO.OUT)
-    pygame.init()
-    conf.screen = pygame.display.set_mode(conf.screen.size, pygame.FULLSCREEN)
-    pygame.display.set_caption('Photo Booth Pics')
-    pygame.mouse.set_visible(False)
-    pygame.mixer.pre_init(44100, -16, 1, 1024 * 3)
-    conf.camera = picamera.PiCamera()
-    conf.camera.capture('/dev/null', 'png')
-    switch_on(conf.led.green)
-
-
-def tear_down(conf):
-    lightshow(1, conf)
-    pygame.mouse.set_visible(True)
-    pygame.quit()
-    conf.camera.close()
-    GPIO.cleanup()
-
-
-def main(conf):
-    set_up(conf)
-    make_button = inject(Button, conf.etc.bounce_time, EventLoopScheduler())
-    buttons = (
-        make_button(Shoot(conf.event.shoot)),
-        make_button(Quit(conf.event.quit)),
-        make_button(Quit(conf.event.reboot)),
-        make_button(Quit(conf.event.shutdown)),
-    )
-    conf.bus = Subject()
-    montage = Observable.interval(conf.montage.interval)
-    blinker = Observable.interval(conf.blink.interval)
-    (Observable
-        .merge([button.pushes for button in buttons])
-        .scan(non_overlapping, seed=ButtonPushed(None, None, 0, 0))
-        .distinct_until_changed()
-        .map(to_command)
-        .merge(
-            ThreadPoolScheduler(max_workers=conf.etc.workers),
-            conf.bus,
-            montage.map(const(ShowRandomMontage())),
-            blinker.map(make_blink))
-        .subscribe(on_next=inject(handle_command, conf)))
     try:
-        return conf.exit_code.get()
+        GPIO.setup(conf.led.green, GPIO.OUT)
+        GPIO.setup(conf.led.yellow, GPIO.OUT)
+        GPIO.setup(conf.led.red, GPIO.OUT)
+        for light in conf.photo.lights:
+            GPIO.setup(light, GPIO.OUT)
+        yield
+    finally:
+        GPIO.cleanup()
+
+
+def _pygame(conf):
+    pygame.init()
+    try:
+        conf.screen = pygame.display.set_mode(
+            conf.screen.size, pygame.FULLSCREEN)
+        pygame.display.set_caption('Photo Booth Pics')
+        pygame.mouse.set_visible(False)
+        pygame.mixer.pre_init(44100, -16, 1, 1024 * 3)
+        yield
+    finally:
+        pygame.mouse.set_visible(True)
+        pygame.quit()
+
+
+def _picamera(conf):
+    conf.camera = picamera.PiCamera()
+    try:
+        conf.camera.capture('/dev/null', 'png')
+        yield
+    finally:
+        conf.camera.close()
+
+
+def _rx(conf):
+    make_button = inject(Button, conf.etc.bounce_time, EventLoopScheduler())
+    try:
+        buttons = (
+            make_button(Shoot(conf.event.shoot)),
+            make_button(Quit(conf.event.quit)),
+            make_button(Quit(conf.event.reboot)),
+            make_button(Quit(conf.event.shutdown)),
+        )
+        conf.bus = Subject()
+        montage = Observable.interval(conf.montage.interval)
+        blinker = Observable.interval(conf.blink.interval)
+        (Observable
+            .merge([button.pushes for button in buttons])
+            .scan(non_overlapping, seed=ButtonPushed(None, None, 0, 0))
+            .distinct_until_changed()
+            .map(to_command)
+            .merge(
+                ThreadPoolScheduler(max_workers=conf.etc.workers),
+                conf.bus,
+                montage.map(const(ShowRandomMontage())),
+                blinker.map(make_blink))
+            .subscribe(on_next=inject(handle_command, conf)))
+        yield
     finally:
         blinker.dispose()
         montage.dispose()
         conf.bus.dispose()
         for button in buttons:
             button.dispose()
-        tear_down(conf)
+
+
+def main(conf):
+    with _gpio(conf), _pygame(conf), _picamera(conf), _rx(conf):
+        switch_on(conf.led.green)
+        try:
+            return conf.exit_code.get()
+        finally:
+            lightshow(1, conf)
