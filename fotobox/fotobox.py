@@ -30,16 +30,6 @@ switch_on = inject(switch, True)
 switch_off = inject(switch, False)
 
 
-def lights_on(pins):
-    for pin in pins:
-        GPIO.output(pin, False)
-
-
-def lights_off(pins):
-    for pin in pins:
-        GPIO.output(pin, True)
-
-
 def lightshow(seconds, conf):
     switch_off(conf.led.green)
     switch_off(conf.led.yellow)
@@ -54,6 +44,16 @@ def lightshow(seconds, conf):
     switch_off(conf.led.green)
     switch_off(conf.led.yellow)
     switch_off(conf.led.red)
+
+
+def lights_on(pins):
+    for pin in pins:
+        GPIO.output(pin, False)
+
+
+def lights_off(pins):
+    for pin in pins:
+        GPIO.output(pin, True)
 
 
 def show_image(image, conf):
