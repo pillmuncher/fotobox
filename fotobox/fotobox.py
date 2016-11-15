@@ -3,10 +3,12 @@
 
 from __future__ import print_function, absolute_import, division
 
+import functools
 import glob
 import os.path
 import queue
 import random
+import threading
 import time
 
 import picamera
@@ -15,8 +17,6 @@ import pygame
 import RPi.GPIO as GPIO
 
 from collections import namedtuple
-from functools import singledispatch
-from threading import Lock
 
 from rx import Observable
 from rx.subjects import Subject
@@ -156,12 +156,12 @@ is_pushed = inject(isinstance, ButtonPushed)
 Log = namedtuple('Log', 'text')
 Shoot = namedtuple('Shoot', 'event')
 Quit = namedtuple('Quit', 'event')
-CreateCollage = namedtuple('CreateCollage', 'imgs time')
+CreateCollage = namedtuple('CreateCollage', 'photos time')
 ShowRandomMontage = namedtuple('ShowRandomMontage', '')
 Blink = namedtuple('Blink', 'action')
 
 
-@singledispatch
+@functools.singledispatch
 def handle_command(cmd, conf):
     raise NotImplementedError
 
@@ -174,6 +174,7 @@ def handle_log(cmd, conf):
 @handle_command.register(Shoot)
 def handle_shoot(cmd, conf):
     with conf.lock:
+        conf.led.status = conf.led.red
         timestamp = time.strftime(conf.photo.time_mask)
         photo_file_mask = conf.photo.file_mask.format(timestamp)
         photo_file_names = conf.camera.capture_continuous(
@@ -181,14 +182,13 @@ def handle_shoot(cmd, conf):
             resize=conf.photo.size,
         )
         montage = conf.montage.image.copy()
-        imgs = []
-        conf.led.status = conf.led.red
+        photos = []
         lights_on(conf.photo.lights)
         conf.camera.start_preview(hflip=True)
         for i in xrange(conf.montage.number_of_photos):
             count_down(i + 1, conf)
             photo_file_name = next(photo_file_names)
-            imgs.append(PIL.Image.open(photo_file_name))
+            photos.append(PIL.Image.open(photo_file_name))
             montage.paste(
                 PIL.Image
                 .open(photo_file_name)
@@ -197,16 +197,16 @@ def handle_shoot(cmd, conf):
                 conf.montage.photo.box[i],
             )
             time.sleep(5.0)
-        conf.bus.on_next(CreateCollage(imgs, timestamp))
+        conf.bus.on_next(CreateCollage(photos, timestamp))
         conf.camera.stop_preview()
         lights_off(conf.photo.lights)
-        conf.led.status = conf.led.yellow
         show_image(pygame.image.load(conf.etc.black.full_image_file), conf)
         montage_file_name = conf.montage.full_mask.format(timestamp)
         (PIL.Image
             .blend(montage, conf.etc.watermark.image, .25)
             .save(montage_file_name))
         show_image(pygame.image.load(montage_file_name), conf)
+        conf.led.status = conf.led.yellow
         time.sleep(conf.montage.interval)
 
 
@@ -220,7 +220,7 @@ def handle_create_collage(cmd, conf):
     collage = make_collage(
         conf.collage.margin,
         conf.collage.background,
-        *cmd.imgs)
+        *cmd.photos)
     width, height = collage.size
     printout = PIL.Image.new(
         'RGB',
@@ -311,6 +311,12 @@ class Button(Subject):
 
 
 def main(conf):
+    GPIO.setmode(GPIO.BOARD)
+    GPIO.setup(conf.led.green, GPIO.OUT)
+    GPIO.setup(conf.led.yellow, GPIO.OUT)
+    GPIO.setup(conf.led.red, GPIO.OUT)
+    for light in conf.photo.lights:
+        GPIO.setup(light, GPIO.OUT)
     pygame.init()
     conf.screen = pygame.display.set_mode(conf.screen.size, pygame.FULLSCREEN)
     pygame.display.set_caption('Photo Booth Pics')
@@ -318,15 +324,9 @@ def main(conf):
     pygame.mixer.pre_init(44100, -16, 1, 1024 * 3)
     conf.camera = picamera.PiCamera()
     conf.camera.capture('/dev/null', 'png')
-    GPIO.setmode(GPIO.BOARD)
-    GPIO.setup(conf.led.green, GPIO.OUT)
-    GPIO.setup(conf.led.yellow, GPIO.OUT)
-    GPIO.setup(conf.led.red, GPIO.OUT)
-    for light in conf.photo.lights:
-        GPIO.setup(light, GPIO.OUT)
     switch_on(conf.led.green)
     conf.led.status = conf.led.yellow
-    conf.lock = Lock()
+    conf.lock = threading.Lock()
     conf.exit_code = queue.Queue(maxsize=1)
     message_sched = EventLoopScheduler()
     command_sched = ThreadPoolScheduler(max_workers=conf.etc.workers),
@@ -358,8 +358,8 @@ def main(conf):
         conf.bus.dispose()
         for button in buttons:
             button.dispose()
-        lightshow(1, conf)
-        GPIO.cleanup()
-        conf.camera.close()
         pygame.mouse.set_visible(True)
         pygame.quit()
+        conf.camera.close()
+        GPIO.cleanup()
+        lightshow(1, conf)
