@@ -25,6 +25,9 @@ from rx.concurrency import EventLoopScheduler, ThreadPoolScheduler
 from util import const, thread_thru, inject
 
 
+switch = GPIO.output
+
+
 def switch_on(pin):
     GPIO.output(pin, True)
 
@@ -158,7 +161,7 @@ Shoot = namedtuple('Shoot', 'event')
 Quit = namedtuple('Quit', 'event')
 CreateCollage = namedtuple('CreateCollage', 'photos time')
 ShowRandomMontage = namedtuple('ShowRandomMontage', '')
-Blink = namedtuple('Blink', 'action')
+Blink = namedtuple('Blink', 'mode')
 
 
 @functools.singledispatch
@@ -250,11 +253,11 @@ def handle_show_random_montage(cmd, conf):
 
 @handle_command.register(Blink)
 def handle_blink(cmd, conf):
-    cmd.action(conf.led.status)
+    switch(conf.led.status, cmd.mode)
 
 
 def make_blink(n):
-    return Blink(switch_on if n % 2 else switch_off)
+    return Blink(n % 2 == 0)
 
 
 def detect_push(prev, curr):
@@ -328,32 +331,31 @@ def main(conf):
     conf.led.status = conf.led.yellow
     conf.lock = threading.Lock()
     conf.exit_code = queue.Queue(maxsize=1)
-    message_sched = EventLoopScheduler()
-    command_sched = ThreadPoolScheduler(max_workers=conf.etc.workers),
+    make_button = inject(Button, conf.etc.bounce_time, EventLoopScheduler())
     buttons = (
-        Button(Shoot(conf.event.shoot), conf.etc.bounce_time, message_sched),
-        Button(Quit(conf.event.quit), conf.etc.bounce_time, message_sched),
-        Button(Quit(conf.event.reboot), conf.etc.bounce_time, message_sched),
-        Button(Quit(conf.event.shutdown), conf.etc.bounce_time, message_sched),
+        make_button(Shoot(conf.event.shoot)),
+        make_button(Quit(conf.event.quit)),
+        make_button(Quit(conf.event.reboot)),
+        make_button(Quit(conf.event.shutdown)),
     )
     conf.bus = Subject()
     montage = Observable.interval(conf.montage.interval)
-    blinking = Observable.interval(conf.blink.interval)
+    blinker = Observable.interval(conf.blink.interval)
     (Observable
         .merge([button.pushes for button in buttons])
         .scan(non_overlapping, seed=ButtonPushed(None, None, 0, 0))
         .distinct_until_changed()
         .map(to_command)
         .merge(
-            command_sched,
+            ThreadPoolScheduler(max_workers=conf.etc.workers),
             conf.bus,
             montage.map(const(ShowRandomMontage())),
-            blinking.map(make_blink))
+            blinker.map(make_blink))
         .subscribe(on_next=inject(handle_command, conf)))
     try:
         return conf.exit_code.get()
     finally:
-        blinking.dispose()
+        blinker.dispose()
         montage.dispose()
         conf.bus.dispose()
         for button in buttons:
