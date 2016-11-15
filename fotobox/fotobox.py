@@ -196,6 +196,7 @@ def handle_shoot(cmd, conf):
             conf.montage.photo.box[i],
         )
         time.sleep(5.0)
+    conf.bus.on_next(CreateCollage(imgs, timestamp))
     conf.camera.stop_preview()
     lights_off(conf.photo.lights)
     conf.led.status = conf.led.yellow
@@ -205,7 +206,6 @@ def handle_shoot(cmd, conf):
         .blend(montage, conf.etc.watermark.image, .25)
         .save(montage_file_name))
     show_image(pygame.image.load(montage_file_name), conf)
-    conf.bus.on_next(CreateCollage(imgs, timestamp))
     time.sleep(conf.montage.interval)
     conf.shooting_now = False
 
