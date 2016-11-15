@@ -21,34 +21,7 @@ from rx import Observable
 from rx.subjects import Subject
 from rx.concurrency import EventLoopScheduler, ThreadPoolScheduler
 
-
-def const(x):
-    def ignore(*args, **kwargs):
-        return x
-    return ignore
-
-
-def flip(f):
-    def flipped(*args):
-        return f(*reversed(args))
-    return flipped
-
-
-def apply(f, *args, **kwargs):
-    return f(*args, **kwargs)
-
-
-rapply = flip(apply)
-
-
-def thread_thru(v, *fs):
-    return reduce(rapply, fs, v)
-
-
-def inject(f, *args, **kwargs):
-    def inj(x):
-        return f(x, *args, **kwargs)
-    return inj
+from util import const, thread_thru, inject
 
 
 def switch_on(pin):
@@ -88,15 +61,6 @@ def lightshow(seconds, conf):
 def show_image(image, conf):
     conf.screen.blit(image, conf.screen.offset)
     pygame.display.flip()
-
-
-def play_sound(file_name):
-    pygame.mixer.music.load(file_name)
-    pygame.mixer.music.play(0)
-
-
-def stop_sound():
-    pygame.mixer.music.stop()
 
 
 def show_overlay(file_name, position, seconds, conf):
@@ -140,6 +104,15 @@ def count_down(n, conf):
     )
 
 
+def play_sound(file_name):
+    pygame.mixer.music.load(file_name)
+    pygame.mixer.music.play(0)
+
+
+def stop_sound():
+    pygame.mixer.music.stop()
+
+
 def make_collage(margin, background, img11, img12, img21, img22):
     assert img11.size == img21.size == img21.size == img22.size
     img_width, img_height = img11.size
@@ -171,7 +144,7 @@ def make_collage(margin, background, img11, img12, img21, img22):
     return collage
 
 
-ButtonPressed = namedtuple('ButtonPressed', 'command time')
+ButtonPressed = namedtuple('ButtonPressed', 'time command')
 ButtonReleased = namedtuple('ButtonReleased', 'time')
 ButtonPushed = namedtuple('ButtonPushed', 'command pressed released')
 
@@ -181,7 +154,6 @@ is_pushed = inject(isinstance, ButtonPushed)
 
 Log = namedtuple('Log', 'text')
 Shoot = namedtuple('Shoot', 'event')
-Reset = namedtuple('Reset', 'event')
 Quit = namedtuple('Quit', 'event')
 CreateCollage = namedtuple('CreateCollage', 'imgs time')
 ShowRandomMontage = namedtuple('ShowRandomMontage', '')
@@ -190,7 +162,7 @@ Blink = namedtuple('Blink', 'action')
 
 @singledispatch
 def handle_command(cmd, conf):
-    pass
+    raise NotImplementedError
 
 
 @handle_command.register(Log)
@@ -200,6 +172,7 @@ def handle_log(cmd, conf):
 
 @handle_command.register(Shoot)
 def handle_shoot(cmd, conf):
+    conf.shooting_now = True
     timestamp = time.strftime(conf.photo.time_mask)
     photo_file_mask = conf.photo.file_mask.format(timestamp)
     photo_file_names = conf.camera.capture_continuous(
@@ -234,11 +207,7 @@ def handle_shoot(cmd, conf):
     show_image(pygame.image.load(montage_file_name), conf)
     conf.bus.on_next(CreateCollage(imgs, timestamp))
     time.sleep(conf.montage.interval)
-
-
-@handle_command.register(Reset)
-def handle_reset(cmd, conf):
-    pass
+    conf.shooting_now = False
 
 
 @handle_command.register(Quit)
@@ -264,15 +233,16 @@ def handle_create_collage(cmd, conf):
 
 @handle_command.register(ShowRandomMontage)
 def handle_show_random_montage(cmd, conf):
-    thread_thru(
-        '*',
-        conf.montage.full_mask.format,
-        glob.glob,
-        random.choice,
-        pygame.image.load,
-        inject(pygame.transform.scale, conf.screen.size),
-        inject(show_image, conf),
-    )
+    if not conf.shooting_now:
+        thread_thru(
+            '*',
+            conf.montage.full_mask.format,
+            glob.glob,
+            random.choice,
+            pygame.image.load,
+            inject(pygame.transform.scale, conf.screen.size),
+            inject(show_image, conf),
+        )
 
 
 @handle_command.register(Blink)
@@ -280,27 +250,8 @@ def handle_blink(cmd, conf):
     cmd.action(conf.led.status)
 
 
-class Button(Subject):
-
-    def __init__(self, command, bounce_time):
-        Subject.__init__(self)
-        self._command = command
-        GPIO.setup(command.event.port, GPIO.IN)
-        GPIO.add_event_detect(
-            command.event.port,
-            GPIO.BOTH,
-            bouncetime=bounce_time,
-            callback=self._handle)
-
-    def _handle(self, port):
-        if GPIO.input(port):
-            self.on_next(ButtonPressed(self._command, time.time()))
-        else:
-            self.on_next(ButtonReleased(time.time()))
-
-    def dispose(self):
-        GPIO.remove_command_detect(self._command.event.port)
-        Subject.dispose(self)
+def make_blink(n):
+    return Blink(switch_on if n % 2 else switch_off)
 
 
 def detect_push(prev, curr):
@@ -326,32 +277,44 @@ def to_command(pushed):
         return Log(pushed.command.event.info)
 
 
-def prepare_button(button, scheduler):
-    return (
-        Observable
-        .using(scheduler, button)
-        .scan(detect_push)
-        .where(is_pushed)
-        .distinct_until_changed()
-    )
+class Button(Subject):
 
+    def __init__(self, command, bounce_time, scheduler):
+        Subject.__init__(self)
+        self._command = command
+        self.pushes = (
+            self
+            .observe_on(scheduler)
+            .scan(detect_push)
+            .where(is_pushed)
+            .distinct_until_changed()
+        )
+        GPIO.setup(command.event.port, GPIO.IN)
+        GPIO.add_event_detect(
+            command.event.port,
+            GPIO.BOTH,
+            bouncetime=bounce_time,
+            callback=self._handle)
 
-def make_blink(n):
-    return Blink(switch_on if n % 2 else switch_off)
+    def _handle(self, port):
+        if GPIO.input(port):
+            self.on_next(ButtonPressed(time.time(), self._command))
+        else:
+            self.on_next(ButtonReleased(time.time()))
+
+    def dispose(self):
+        GPIO.remove_command_detect(self._command.event.port)
+        Subject.dispose(self)
 
 
 def main(conf):
-    conf.led.status = conf.led.yellow
-    conf.camera = picamera.PiCamera()
-    conf.camera.capture('/dev/null', 'png')
     pygame.init()
-    conf.screen = pygame.display.set_mode(
-        conf.screen.size,
-        pygame.FULLSCREEN,
-    )
+    conf.screen = pygame.display.set_mode(conf.screen.size, pygame.FULLSCREEN)
     pygame.display.set_caption('Photo Booth Pics')
     pygame.mouse.set_visible(False)
     pygame.mixer.pre_init(44100, -16, 1, 1024 * 3)
+    conf.camera = picamera.PiCamera()
+    conf.camera.capture('/dev/null', 'png')
     GPIO.setmode(GPIO.BOARD)
     GPIO.setup(conf.led.green, GPIO.OUT)
     GPIO.setup(conf.led.yellow, GPIO.OUT)
@@ -359,21 +322,22 @@ def main(conf):
     for light in conf.photo.lights:
         GPIO.setup(light, GPIO.OUT)
     switch_on(conf.led.green)
+    conf.led.status = conf.led.yellow
+    conf.shooting_now = False
     conf.exit_code = queue.Queue(maxsize=1)
+    message_sched = EventLoopScheduler()
+    command_sched = ThreadPoolScheduler(max_workers=conf.etc.workers),
     buttons = (
-        Button(Shoot(conf.event.shoot), conf.etc.bounce_time),
-        Button(Reset(conf.event.reset), conf.etc.bounce_time),
-        Button(Quit(conf.event.quit), conf.etc.bounce_time),
-        Button(Quit(conf.event.reboot), conf.etc.bounce_time),
-        Button(Quit(conf.event.shutdown), conf.etc.bounce_time),
+        Button(Shoot(conf.event.shoot), conf.etc.bounce_time, message_sched),
+        Button(Quit(conf.event.quit), conf.etc.bounce_time, message_sched),
+        Button(Quit(conf.event.reboot), conf.etc.bounce_time, message_sched),
+        Button(Quit(conf.event.shutdown), conf.etc.bounce_time, message_sched),
     )
     conf.bus = Subject()
     montage = Observable.interval(conf.montage.interval)
     blinking = Observable.interval(conf.blink.interval)
-    message_sched = EventLoopScheduler()
-    command_sched = ThreadPoolScheduler(max_workers=conf.etc.workers),
     (Observable
-        .merge([prepare_button(button, message_sched) for button in buttons])
+        .merge([button.pushes for button in buttons])
         .scan(non_overlapping, seed=ButtonPushed(None, None, 0, 0))
         .distinct_until_changed()
         .map(to_command)
@@ -391,10 +355,8 @@ def main(conf):
         conf.bus.dispose()
         for button in buttons:
             button.dispose()
-        conf.led.status = None
         lightshow(1, conf)
-        time.sleep(3)
         GPIO.cleanup()
+        conf.camera.close()
         pygame.mouse.set_visible(True)
         pygame.quit()
-        conf.camera.close()
