@@ -357,18 +357,18 @@ def _rx(conf):
     conf.bus = Subject()
     montage = Observable.interval(conf.montage.interval)
     blinker = Observable.interval(conf.blink.interval)
-    (Observable
-        .merge([button.pushes for button in buttons])
-        .scan(non_overlapping, seed=ButtonPushed(None, None, 0, 0))
-        .distinct_until_changed()
-        .map(to_command)
-        .merge(
-            ThreadPoolScheduler(max_workers=conf.etc.workers),
-            conf.bus,
-            montage.map(const(ShowRandomMontage())),
-            blinker.map(make_blink))
-        .subscribe(on_next=inject(handle_command, conf)))
     try:
+        (Observable
+            .merge([button.pushes for button in buttons])
+            .scan(non_overlapping, seed=ButtonPushed(None, None, 0, 0))
+            .distinct_until_changed()
+            .map(to_command)
+            .merge(
+                ThreadPoolScheduler(max_workers=conf.etc.workers),
+                conf.bus,
+                montage.map(const(ShowRandomMontage())),
+                blinker.map(make_blink))
+            .subscribe(on_next=inject(handle_command, conf)))
         yield
     finally:
         blinker.dispose()
