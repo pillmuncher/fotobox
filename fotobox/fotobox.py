@@ -315,8 +315,10 @@ def _gpio(conf):
         GPIO.setup(conf.led.red, GPIO.OUT)
         for light in conf.photo.lights:
             GPIO.setup(light, GPIO.OUT)
+        switch_on(conf.led.green)
         yield
     finally:
+        lightshow(1, conf)
         GPIO.cleanup()
 
 
@@ -382,8 +384,4 @@ def _rx(conf):
 
 def main(conf):
     with _gpio(conf), _pygame(conf), _picamera(conf), _rx(conf):
-        switch_on(conf.led.green)
-        try:
-            return conf.exit_code.get()
-        finally:
-            lightshow(1, conf)
+        return conf.exit_code.get()
