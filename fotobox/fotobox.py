@@ -358,7 +358,8 @@ def _rx(conf):
     montage = Observable.interval(conf.montage.interval)
     blinker = Observable.interval(conf.blink.interval)
     try:
-        (Observable
+        subscription = (
+            Observable
             .merge([button.pushes for button in buttons])
             .scan(non_overlapping, seed=ButtonPushed(None, None, 0, 0))
             .distinct_until_changed()
@@ -371,6 +372,7 @@ def _rx(conf):
             .subscribe(on_next=inject(handle_command, conf)))
         yield
     finally:
+        subscription.dispose()
         blinker.dispose()
         montage.dispose()
         conf.bus.dispose()
