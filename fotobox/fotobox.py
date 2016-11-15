@@ -26,14 +26,8 @@ from util import const, thread_thru, inject
 
 
 switch = GPIO.output
-
-
-def switch_on(pin):
-    GPIO.output(pin, True)
-
-
-def switch_off(pin):
-    GPIO.output(pin, False)
+switch_on = inject(switch, True)
+switch_off = inject(switch, False)
 
 
 def lights_on(pins):
