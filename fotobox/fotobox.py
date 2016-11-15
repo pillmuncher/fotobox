@@ -16,6 +16,7 @@ import RPi.GPIO as GPIO
 
 from collections import namedtuple
 from functools import singledispatch
+from threading import Lock
 
 from rx import Observable
 from rx.subjects import Subject
@@ -172,42 +173,41 @@ def handle_log(cmd, conf):
 
 @handle_command.register(Shoot)
 def handle_shoot(cmd, conf):
-    conf.shooting_now = True
-    timestamp = time.strftime(conf.photo.time_mask)
-    photo_file_mask = conf.photo.file_mask.format(timestamp)
-    photo_file_names = conf.camera.capture_continuous(
-        photo_file_mask,
-        resize=conf.photo.size,
-    )
-    montage = conf.montage.image.copy()
-    imgs = []
-    conf.led.status = conf.led.red
-    lights_on(conf.photo.lights)
-    conf.camera.start_preview(hflip=True)
-    for i in xrange(conf.montage.number_of_photos):
-        count_down(i + 1, conf)
-        photo_file_name = next(photo_file_names)
-        imgs.append(PIL.Image.open(photo_file_name))
-        montage.paste(
-            PIL.Image
-            .open(photo_file_name)
-            .convert('RGBA')
-            .resize(conf.montage.photo.size),
-            conf.montage.photo.box[i],
+    with conf.lock:
+        timestamp = time.strftime(conf.photo.time_mask)
+        photo_file_mask = conf.photo.file_mask.format(timestamp)
+        photo_file_names = conf.camera.capture_continuous(
+            photo_file_mask,
+            resize=conf.photo.size,
         )
-        time.sleep(5.0)
-    conf.bus.on_next(CreateCollage(imgs, timestamp))
-    conf.camera.stop_preview()
-    lights_off(conf.photo.lights)
-    conf.led.status = conf.led.yellow
-    show_image(pygame.image.load(conf.etc.black.full_image_file), conf)
-    montage_file_name = conf.montage.full_mask.format(timestamp)
-    (PIL.Image
-        .blend(montage, conf.etc.watermark.image, .25)
-        .save(montage_file_name))
-    show_image(pygame.image.load(montage_file_name), conf)
-    time.sleep(conf.montage.interval)
-    conf.shooting_now = False
+        montage = conf.montage.image.copy()
+        imgs = []
+        conf.led.status = conf.led.red
+        lights_on(conf.photo.lights)
+        conf.camera.start_preview(hflip=True)
+        for i in xrange(conf.montage.number_of_photos):
+            count_down(i + 1, conf)
+            photo_file_name = next(photo_file_names)
+            imgs.append(PIL.Image.open(photo_file_name))
+            montage.paste(
+                PIL.Image
+                .open(photo_file_name)
+                .convert('RGBA')
+                .resize(conf.montage.photo.size),
+                conf.montage.photo.box[i],
+            )
+            time.sleep(5.0)
+        conf.bus.on_next(CreateCollage(imgs, timestamp))
+        conf.camera.stop_preview()
+        lights_off(conf.photo.lights)
+        conf.led.status = conf.led.yellow
+        show_image(pygame.image.load(conf.etc.black.full_image_file), conf)
+        montage_file_name = conf.montage.full_mask.format(timestamp)
+        (PIL.Image
+            .blend(montage, conf.etc.watermark.image, .25)
+            .save(montage_file_name))
+        show_image(pygame.image.load(montage_file_name), conf)
+        time.sleep(conf.montage.interval)
 
 
 @handle_command.register(Quit)
@@ -233,16 +233,19 @@ def handle_create_collage(cmd, conf):
 
 @handle_command.register(ShowRandomMontage)
 def handle_show_random_montage(cmd, conf):
-    if not conf.shooting_now:
-        thread_thru(
-            '*',
-            conf.montage.full_mask.format,
-            glob.glob,
-            random.choice,
-            pygame.image.load,
-            inject(pygame.transform.scale, conf.screen.size),
-            inject(show_image, conf),
-        )
+    if conf.lock.acquire(blocking=False):
+        try:
+            thread_thru(
+                '*',
+                conf.montage.full_mask.format,
+                glob.glob,
+                random.choice,
+                pygame.image.load,
+                inject(pygame.transform.scale, conf.screen.size),
+                inject(show_image, conf),
+            )
+        finally:
+            conf.lock.release()
 
 
 @handle_command.register(Blink)
@@ -323,7 +326,7 @@ def main(conf):
         GPIO.setup(light, GPIO.OUT)
     switch_on(conf.led.green)
     conf.led.status = conf.led.yellow
-    conf.shooting_now = False
+    conf.lock = Lock()
     conf.exit_code = queue.Queue(maxsize=1)
     message_sched = EventLoopScheduler()
     command_sched = ThreadPoolScheduler(max_workers=conf.etc.workers),
