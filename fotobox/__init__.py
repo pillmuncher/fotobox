@@ -5,6 +5,8 @@ from __future__ import print_function, absolute_import, division
 
 import json
 import os.path
+import queue
+import threading
 
 import PIL.Image
 
@@ -111,6 +113,9 @@ def config(file_name):
         .resize(c.screen.size)
     )
     c.etc.songs.mask = os.path.join(c.etc.songs.dir, c.etc.songs.sound_mask)
+    c.lock = threading.Lock()
+    c.exit_code = queue.Queue(maxsize=1)
+    c.led.status = c.led.yellow
     return c
 
 

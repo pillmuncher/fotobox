@@ -6,9 +6,7 @@ from __future__ import print_function, absolute_import, division
 import functools
 import glob
 import os.path
-import queue
 import random
-import threading
 import time
 
 import picamera
@@ -307,7 +305,7 @@ class Button(Subject):
         Subject.dispose(self)
 
 
-def main(conf):
+def set_up(conf):
     GPIO.setmode(GPIO.BOARD)
     GPIO.setup(conf.led.green, GPIO.OUT)
     GPIO.setup(conf.led.yellow, GPIO.OUT)
@@ -322,9 +320,18 @@ def main(conf):
     conf.camera = picamera.PiCamera()
     conf.camera.capture('/dev/null', 'png')
     switch_on(conf.led.green)
-    conf.led.status = conf.led.yellow
-    conf.lock = threading.Lock()
-    conf.exit_code = queue.Queue(maxsize=1)
+
+
+def tear_down(conf):
+    lightshow(1, conf)
+    pygame.mouse.set_visible(True)
+    pygame.quit()
+    conf.camera.close()
+    GPIO.cleanup()
+
+
+def main(conf):
+    set_up(conf)
     make_button = inject(Button, conf.etc.bounce_time, EventLoopScheduler())
     buttons = (
         make_button(Shoot(conf.event.shoot)),
@@ -354,8 +361,4 @@ def main(conf):
         conf.bus.dispose()
         for button in buttons:
             button.dispose()
-        pygame.mouse.set_visible(True)
-        pygame.quit()
-        conf.camera.close()
-        GPIO.cleanup()
-        lightshow(1, conf)
+        tear_down(conf)
