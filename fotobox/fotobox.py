@@ -148,7 +148,7 @@ def make_collage(margin, background, img11, img12, img21, img22):
 
 ButtonPressed = namedtuple('ButtonPressed', 'time command')
 ButtonReleased = namedtuple('ButtonReleased', 'time')
-ButtonPushed = namedtuple('ButtonPushed', 'command pressed released')
+ButtonPushed = namedtuple('ButtonPushed', 'command log pressed released')
 
 is_pressed = inject(isinstance, ButtonPressed)
 is_released = inject(isinstance, ButtonReleased)
@@ -257,7 +257,7 @@ def handle_blink(cmd, conf):
 def detect_push(prev, curr):
     assert prev.time <= curr.time
     if is_pressed(prev) and is_released(curr):
-        return ButtonPushed(prev.command, prev.time, curr.time)
+        return ButtonPushed(prev.command, prev.log, prev.time, curr.time)
     else:
         return curr
 
