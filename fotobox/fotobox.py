@@ -60,6 +60,15 @@ def lights_off(pins):
         GPIO.output(pin, True)
 
 
+def play_sound(file_name):
+    pygame.mixer.music.load(file_name)
+    pygame.mixer.music.play(0)
+
+
+def stop_sound():
+    pygame.mixer.music.stop()
+
+
 def show_image(image, conf):
     conf.screen.blit(image, conf.screen.offset)
     pygame.display.flip()
@@ -104,15 +113,6 @@ def count_down(n, conf):
         1.5,
         conf,
     )
-
-
-def play_sound(file_name):
-    pygame.mixer.music.load(file_name)
-    pygame.mixer.music.play(0)
-
-
-def stop_sound():
-    pygame.mixer.music.stop()
 
 
 def make_collage(margin, background, img11, img12, img21, img22):
