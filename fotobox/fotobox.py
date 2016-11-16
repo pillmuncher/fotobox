@@ -171,14 +171,14 @@ def handle_log(cmd, conf):
 def handle_shoot(cmd, conf):
     with conf.lock:
         conf.led.status = conf.led.red
+        photos = []
+        montage = conf.montage.image.copy()
+        lights_on(conf.photo.lights)
         timestamp = time.strftime(conf.photo.time_mask)
         photo_file_names = conf.camera.capture_continuous(
             conf.photo.file_mask.format(timestamp),
             resize=conf.photo.size,
         )
-        montage = conf.montage.image.copy()
-        photos = []
-        lights_on(conf.photo.lights)
         conf.camera.start_preview(hflip=True)
         for i in xrange(conf.montage.number_of_photos):
             count_down(i + 1, conf)
@@ -337,12 +337,9 @@ def _pygame(conf):
 
 @contextlib.contextmanager
 def _picamera(conf):
-    conf.camera = picamera.PiCamera()
-    try:
+    with picamera.PiCamera() as conf.camera:
         conf.camera.capture('/dev/null', 'png')
         yield
-    finally:
-        conf.camera.close()
 
 
 @contextlib.contextmanager
