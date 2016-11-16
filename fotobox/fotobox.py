@@ -182,8 +182,7 @@ def handle_shoot(cmd, conf):
         conf.camera.start_preview(hflip=True)
         for i in xrange(conf.montage.number_of_photos):
             count_down(i + 1, conf)
-            photo_file_name = next(photo_file_names)
-            photo = PIL.Image.open(photo_file_name)
+            photo = PIL.Image.open(next(photo_file_names))
             photos.append(photo)
             montage.paste(
                 photo
