@@ -24,9 +24,14 @@ from rx.concurrency import EventLoopScheduler, ThreadPoolScheduler
 from util import const, thread_thru, inject
 
 
-switch = GPIO.output
-switch_on = inject(switch, True)
-switch_off = inject(switch, False)
+switch_on = inject(GPIO.output, True)
+switch_off = inject(GPIO.output, False)
+
+
+def blink_once(led, conf):
+    switch_on(led)
+    time.sleep(conf.blink.interval / 2)
+    switch_off(led)
 
 
 def lightshow(seconds, conf):
@@ -154,7 +159,7 @@ Shoot = namedtuple('Shoot', 'event')
 Quit = namedtuple('Quit', 'event')
 CreateCollage = namedtuple('CreateCollage', 'photos time')
 ShowRandomMontage = namedtuple('ShowRandomMontage', '')
-Blink = namedtuple('Blink', 'mode')
+Blink = namedtuple('Blink', '')
 
 
 @functools.singledispatch
@@ -169,20 +174,19 @@ def handle_log(cmd, conf):
 
 @handle_command.register(Shoot)
 def handle_shoot(cmd, conf):
-    with conf.lock:
-        conf.led.status = conf.led.red
+    with conf.idle_lock:
         photos = []
         montage = conf.montage.image.copy()
         lights_on(conf.photo.lights)
         timestamp = time.strftime(conf.photo.time_mask)
-        photo_file_names = conf.camera.capture_continuous(
+        file_names = conf.camera.capture_continuous(
             conf.photo.file_mask.format(timestamp),
             resize=conf.photo.size,
         )
         conf.camera.start_preview(hflip=True)
         for i in xrange(conf.montage.number_of_photos):
             count_down(i + 1, conf)
-            photo = PIL.Image.open(next(photo_file_names))
+            photo = PIL.Image.open(next(file_names))
             photos.append(photo)
             montage.paste(
                 photo
@@ -200,7 +204,6 @@ def handle_shoot(cmd, conf):
         show_image(pygame.image.load(montage_file_name), conf)
         conf.camera.stop_preview()
         lights_off(conf.photo.lights)
-        conf.led.status = conf.led.yellow
         time.sleep(conf.montage.interval)
 
 
@@ -227,7 +230,7 @@ def handle_create_collage(cmd, conf):
 
 @handle_command.register(ShowRandomMontage)
 def handle_show_random_montage(cmd, conf):
-    if conf.lock.acquire(blocking=False):
+    if conf.idle_lock.acquire(blocking=False):
         try:
             thread_thru(
                 '*',
@@ -239,16 +242,16 @@ def handle_show_random_montage(cmd, conf):
                 inject(show_image, conf),
             )
         finally:
-            conf.lock.release()
+            conf.idle_lock.release()
 
 
 @handle_command.register(Blink)
 def handle_blink(cmd, conf):
-    switch(conf.led.status, cmd.mode)
-
-
-def make_blink(n):
-    return Blink(n % 2 == 0)
+    if conf.idle_lock.acquire(blocking=False):
+        conf.idle_lock.release()
+        blink_once(conf.led.yellow, conf)
+    else:
+        blink_once(conf.led.red, conf)
 
 
 def detect_push(prev, curr):
@@ -364,8 +367,10 @@ def _rx(conf):
             ThreadPoolScheduler(max_workers=conf.etc.workers),
             conf.bus,
             montage_ticks.map(const(ShowRandomMontage())),
-            blinker_ticks.map(make_blink))
-        .subscribe(on_next=inject(handle_command, conf)))
+            blinker_ticks.map(const(Blink()))
+        )
+        .subscribe(on_next=inject(handle_command, conf))
+    )
     try:
         yield
     finally:

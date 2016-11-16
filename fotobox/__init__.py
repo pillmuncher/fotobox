@@ -115,7 +115,6 @@ def config(file_name):
     c.etc.songs.mask = os.path.join(c.etc.songs.dir, c.etc.songs.sound_mask)
     c.lock = threading.Lock()
     c.exit_code = queue.Queue(maxsize=1)
-    c.led.status = c.led.yellow
     return c
 
 
