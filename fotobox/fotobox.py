@@ -317,8 +317,8 @@ def _gpio(conf):
             GPIO.setup(light, GPIO.OUT)
         switch_on(conf.led.green)
         yield
-    finally:
         lightshow(1, conf)
+    finally:
         GPIO.cleanup()
 
 
@@ -357,8 +357,8 @@ def _rx(conf):
         make_button(Quit(conf.event.shutdown)),
     )
     conf.bus = Subject()
-    montage = Observable.interval(conf.montage.interval)
-    blinker = Observable.interval(conf.blink.interval)
+    montage_ticks = Observable.interval(conf.montage.interval)
+    blinker_ticks = Observable.interval(conf.blink.interval)
     handler = (
         Observable
         .merge([button.pushes for button in buttons])
@@ -368,15 +368,15 @@ def _rx(conf):
         .merge(
             ThreadPoolScheduler(max_workers=conf.etc.workers),
             conf.bus,
-            montage.map(const(ShowRandomMontage())),
-            blinker.map(make_blink))
+            montage_ticks.map(const(ShowRandomMontage())),
+            blinker_ticks.map(make_blink))
         .subscribe(on_next=inject(handle_command, conf)))
     try:
         yield
     finally:
         handler.dispose()
-        blinker.dispose()
-        montage.dispose()
+        blinker_ticks.dispose()
+        montage_ticks.dispose()
         conf.bus.dispose()
         for button in buttons:
             button.dispose()
