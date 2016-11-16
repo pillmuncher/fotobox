@@ -355,8 +355,8 @@ def _rx(conf):
         make_button(Quit(conf.event.shutdown)),
     )
     conf.bus = Subject()
-    montage_ticks = Observable.interval(conf.montage.interval)
     blinker_ticks = Observable.interval(conf.blink.interval)
+    montage_ticks = Observable.interval(conf.montage.interval)
     handler = (
         Observable
         .merge([button.pushes for button in buttons])
@@ -366,8 +366,8 @@ def _rx(conf):
         .merge(
             ThreadPoolScheduler(max_workers=conf.etc.workers),
             conf.bus,
+            blinker_ticks.map(const(Blink())),
             montage_ticks.map(const(ShowRandomMontage())),
-            blinker_ticks.map(const(Blink()))
         )
         .subscribe(on_next=inject(handle_command, conf))
     )
@@ -375,8 +375,8 @@ def _rx(conf):
         yield
     finally:
         handler.dispose()
-        blinker_ticks.dispose()
         montage_ticks.dispose()
+        blinker_ticks.dispose()
         conf.bus.dispose()
         for button in buttons:
             button.dispose()
