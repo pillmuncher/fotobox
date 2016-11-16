@@ -172,9 +172,8 @@ def handle_shoot(cmd, conf):
     with conf.lock:
         conf.led.status = conf.led.red
         timestamp = time.strftime(conf.photo.time_mask)
-        photo_file_mask = conf.photo.file_mask.format(timestamp)
         photo_file_names = conf.camera.capture_continuous(
-            photo_file_mask,
+            conf.photo.file_mask.format(timestamp),
             resize=conf.photo.size,
         )
         montage = conf.montage.image.copy()
@@ -184,24 +183,24 @@ def handle_shoot(cmd, conf):
         for i in xrange(conf.montage.number_of_photos):
             count_down(i + 1, conf)
             photo_file_name = next(photo_file_names)
-            photos.append(PIL.Image.open(photo_file_name))
+            photo = PIL.Image.open(photo_file_name)
+            photos.append(photo)
             montage.paste(
-                PIL.Image
-                .open(photo_file_name)
+                photo
+                .copy()
                 .convert('RGBA')
-                .resize(conf.montage.photo.size),
+                .resize(conf.montage.photo.size, PIL.Image.ANTIALIAS),
                 conf.montage.photo.box[i],
             )
             time.sleep(5.0)
         conf.bus.on_next(CreateCollage(photos, timestamp))
-        conf.camera.stop_preview()
-        lights_off(conf.photo.lights)
-        show_image(pygame.image.load(conf.etc.black.full_image_file), conf)
         montage_file_name = conf.montage.full_mask.format(timestamp)
         (PIL.Image
             .blend(montage, conf.etc.watermark.image, .25)
             .save(montage_file_name))
         show_image(pygame.image.load(montage_file_name), conf)
+        conf.camera.stop_preview()
+        lights_off(conf.photo.lights)
         conf.led.status = conf.led.yellow
         time.sleep(conf.montage.interval)
 
