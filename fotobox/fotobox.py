@@ -86,7 +86,7 @@ def count_down(n, conf):
         2,
         conf,
     )
-    for i in [3, 2, 1]:
+    for i in (3, 2, 1):
         play_sound(conf.etc.countdown.full_sound_mask.format(i))
         show_overlay(
             conf.etc.countdown.full_image_mask.format(i),
@@ -274,14 +274,15 @@ def to_command(pushed):
     if pushed.command.event.hold >= pushed.released - pushed.pressed:
         return pushed.command
     else:
-        return Log(pushed.command.event.info)
+        return pushed.log
 
 
 class Button(Subject):
 
     def __init__(self, command, bounce_time, scheduler):
         Subject.__init__(self)
-        self._command = command
+        self.command = command
+        self.log = Log(command.event.info)
         self.pushes = (
             self
             .observe_on(scheduler)
@@ -298,12 +299,12 @@ class Button(Subject):
 
     def _handle(self, port):
         if GPIO.input(port):
-            self.on_next(ButtonPressed(time.time(), self._command))
+            self.on_next(ButtonPressed(time.time(), self.command))
         else:
             self.on_next(ButtonReleased(time.time()))
 
     def dispose(self):
-        GPIO.remove_command_detect(self._command.event.port)
+        GPIO.remove_command_detect(self.command.event.port)
         Subject.dispose(self)
 
 
