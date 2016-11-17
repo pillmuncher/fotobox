@@ -18,10 +18,6 @@ def set_caption(caption):
     pygame.display.set_caption(caption)
 
 
-def scale_image(image, size):
-    return pygame.transform.scale(image, size)
-
-
 def load_image(file_name):
     return pygame.image.load(file_name)
 
