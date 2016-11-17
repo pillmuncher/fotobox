@@ -81,7 +81,7 @@ def count_down(n, conf):
     )
 
 
-def make_collage(margin, background, img11, img12, img21, img22):
+def create_collage(margin, background, img11, img12, img21, img22):
     assert img11.size == img21.size == img21.size == img22.size
     img_width, img_height = img11.size
     width = img_width * 2 + margin.padding + margin.left + margin.right
@@ -173,7 +173,7 @@ def handle_quit(cmd, conf):
 
 @handle_command.register(CreateCollage)
 def handle_create_collage(cmd, conf):
-    collage = make_collage(
+    collage = create_collage(
         conf.collage.margin, conf.collage.background, *cmd.photos)
     width, height = collage.size
     size = int(height * 1.5), height
