@@ -152,7 +152,7 @@ def handle_log(cmd, conf):
 
 @handle_command.register(Shoot)
 def handle_shoot(cmd, conf):
-    with conf.idle_lock:
+    with conf.shooting_lock:
         photos = []
         montage = conf.montage.image.copy()
         timestamp = time.strftime(conf.photo.time_mask)
@@ -191,10 +191,8 @@ def handle_create_collage(cmd, conf):
     collage = make_collage(
         conf.collage.margin, conf.collage.background, *cmd.photos)
     width, height = collage.size
-    printout = Image.new(
-        'RGB',
-        (int(height * 1.5), height),
-        conf.collage.background)
+    size = int(height * 1.5), height
+    printout = Image.new('RGB', size, conf.collage.background)
     printout.paste(collage, (0, 0))
     printout.paste(conf.collage.logo, (width, 0))
     printout.save(conf.collage.full_mask.format(cmd.time))
@@ -202,7 +200,7 @@ def handle_create_collage(cmd, conf):
 
 @handle_command.register(ShowRandomMontage)
 def handle_show_random_montage(cmd, conf):
-    if conf.idle_lock.acquire(blocking=False):
+    if conf.shooting_lock.acquire(blocking=False):
         try:
             thread_thru(
                 '*',
@@ -210,17 +208,17 @@ def handle_show_random_montage(cmd, conf):
                 glob.glob,
                 random.choice,
                 load_image,
-                inject(Image.resize, conf.screen.size, Image.ANTIALIAS),
+                lambda img: img.resize(conf.screen.size, Image.ANTIALIAS),
                 inject(show_image, conf.ui, conf.screen.offset),
             )
         finally:
-            conf.idle_lock.release()
+            conf.shooting_lock.release()
 
 
 @handle_command.register(Blink)
 def handle_blink(cmd, conf):
-    if conf.idle_lock.acquire(blocking=False):
-        conf.idle_lock.release()
+    if conf.shooting_lock.acquire(blocking=False):
+        conf.shooting_lock.release()
         blink_once(conf.led.yellow, conf)
     else:
         blink_once(conf.led.red, conf)
@@ -306,7 +304,7 @@ def streams(conf):
         blinker_ticks.dispose()
         conf.bus.dispose()
         for button in buttons:
-            button.dispose()
+            button.events.dispose()
 
 
 def main(conf):
