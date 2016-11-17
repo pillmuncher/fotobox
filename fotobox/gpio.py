@@ -7,6 +7,8 @@ import contextlib
 
 import RPi.GPIO as GPIO
 
+from .util import inject
+
 
 class PushButton:
 
@@ -28,16 +30,9 @@ class PushButton:
         pass
 
 
-def setup_out(port):
-    GPIO.setup(port, GPIO.OUT)
-
-
-def switch_on(port):
-    GPIO.output(port, True)
-
-
-def switch_off(port):
-    GPIO.output(port, False)
+setup_out = inject(GPIO.setup, GPIO.OUT)
+switch_on = inject(GPIO.output, True)
+switch_off = inject(GPIO.output, False)
 
 
 @contextlib.contextmanager

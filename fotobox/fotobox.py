@@ -72,9 +72,7 @@ def count_down(n, conf):
             conf,
         )
     if conf.etc.songs.enabled:
-        file_names = glob.glob(conf.etc.songs.mask)
-        file_name = random.choice(file_names)
-        play_sound(file_name)
+        thread_thru(conf.etc.songs.mask, glob.glob, random.choice, play_sound)
     show_overlay(
         conf.etc.smile.full_image_file,
         conf.etc.smile.image_position,
@@ -146,9 +144,8 @@ def handle_shoot(cmd, conf):
         photos = []
         montage = conf.montage.image.copy()
         timestamp = time.strftime(conf.photo.time_mask)
-        file_names = conf.camera.capture_continuous(
+        file_names = conf.camera.shoot_photos(
             conf.photo.file_mask.format(timestamp),
-            resize=conf.photo.size,
         )
         with flash(conf.photo.lights), conf.camera.preview():
             for i in xrange(conf.montage.number_of_photos):
@@ -305,8 +302,8 @@ def main(conf):
         setup_out(conf.led.yellow)
         setup_out(conf.led.green)
         switch_on(conf.led.green)
-        with ui_context(conf.screen.size) as conf.ui:
-            with camera_context() as conf.camera:
+        with ui_context(size=conf.screen.size) as conf.ui:
+            with camera_context(size=conf.photo.size) as conf.camera:
                 with bus_context(conf) as conf.bus:
                     try:
                         return conf.exit_code.get()

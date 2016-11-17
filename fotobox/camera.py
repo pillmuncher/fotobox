@@ -10,11 +10,12 @@ import picamera
 
 class Camera:
 
-    def __init__(self, cam):
+    def __init__(self, cam, size):
         self._camera = cam
+        self._size = size
 
-    def capture_continuous(self, file_name, resize):
-        return self._camera.capture_continuous(file_name, resize=resize)
+    def shoot_photos(self, file_name):
+        return self._camera.capture_continuous(file_name, resize=self._size)
 
     @contextlib.contextmanager
     def preview(self, flip=True):
@@ -35,6 +36,6 @@ class Camera:
 
 
 @contextlib.contextmanager
-def context():
+def context(size):
     with picamera.PiCamera() as cam:
-        yield Camera(cam)
+        yield Camera(cam, size)
