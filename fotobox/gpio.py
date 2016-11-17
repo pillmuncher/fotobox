@@ -32,14 +32,23 @@ def setup_out(port):
     GPIO.setup(port, GPIO.OUT)
 
 
-def set_high(*ports):
-    for port in ports:
-        GPIO.output(port, True)
+def switch_on(port):
+    GPIO.output(port, True)
 
 
-def set_low(*ports):
-    for port in ports:
-        GPIO.output(port, False)
+def switch_off(port):
+    GPIO.output(port, False)
+
+
+@contextlib.contextmanager
+def flash(lights):
+    for light in lights:
+        GPIO.output(light, False)
+    try:
+        yield
+    finally:
+        for light in lights:
+            GPIO.output(light, True)
 
 
 @contextlib.contextmanager

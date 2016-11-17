@@ -18,8 +18,8 @@ from rx.subjects import Subject
 from rx.concurrency import EventLoopScheduler, ThreadPoolScheduler
 
 from .camera import context as camera_context
-from .gpio import setup_out, set_high, set_low, context as gpio_context
-from .gpio import PushButton, set_high as switch_on, set_low as switch_off
+from .gpio import PushButton, setup_out, switch_on, switch_off, flash
+from .gpio import context as gpio_context
 from .ui import show_image, load_image, play_sound, context as ui_context
 from .util import const, thread_thru, inject
 
@@ -112,15 +112,6 @@ def make_collage(margin, background, img11, img12, img21, img22):
     collage.paste(img21, (int(left1), int(top2)))
     collage.paste(img22, (int(left2), int(top2)))
     return collage
-
-
-@contextlib.contextmanager
-def flash(lights):
-    set_low(*lights)
-    try:
-        yield
-    finally:
-        set_high(*lights)
 
 
 ButtonPressed = namedtuple('ButtonPressed', 'time command')
