@@ -140,31 +140,29 @@ def handle_log(cmd, conf):
 
 @handle_command.register(Shoot)
 def handle_shoot(cmd, conf):
-    with conf.shooting_lock:
+    with conf.shooting_lock, flash(conf.photo.lights), conf.camera.preview():
         photos = []
         montage = conf.montage.image.copy()
         timestamp = time.strftime(conf.photo.time_mask)
         file_names = conf.camera.shoot_photos(
             conf.photo.file_mask.format(timestamp),
         )
-        with flash(conf.photo.lights), conf.camera.preview():
-            for i in xrange(conf.montage.number_of_photos):
-                count_down(i + 1, conf)
-                photo = Image.open(next(file_names))
-                photos.append(photo)
-                montage.paste(
-                    photo
-                    .copy()
-                    .convert('RGBA')
-                    .resize(conf.montage.photo.size, Image.ANTIALIAS),
-                    conf.montage.photo.box[i],
-                )
-                time.sleep(5.0)
-            conf.bus.on_next(CreateCollage(photos, timestamp))
-            montage_file_name = conf.montage.full_mask.format(timestamp)
-            montage = Image.blend(montage, conf.etc.watermark.image, .25)
-            montage.save(montage_file_name)
-            show_image(montage, conf.ui, conf.screen.offset, flip=True)
+        for i in xrange(conf.montage.number_of_photos):
+            count_down(i + 1, conf)
+            photo = Image.open(next(file_names))
+            photos.append(photo)
+            montage.paste(
+                photo
+                .copy()
+                .convert('RGBA')
+                .resize(conf.montage.photo.size, Image.ANTIALIAS),
+                conf.montage.photo.box[i],
+            )
+            time.sleep(5)
+        montage = Image.blend(montage, conf.etc.watermark.image, .25)
+        montage.save(conf.montage.full_mask.format(timestamp))
+        show_image(montage, conf.ui, conf.screen.offset, flip=True)
+        conf.bus.on_next(CreateCollage(photos, timestamp))
         time.sleep(conf.montage.interval)
 
 
