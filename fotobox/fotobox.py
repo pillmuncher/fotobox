@@ -160,7 +160,7 @@ def handle_shoot(cmd, conf):
             conf.photo.file_mask.format(timestamp),
             resize=conf.photo.size,
         )
-        with flash(conf.photo.lights), conf.camera.preview():
+        with flash(*conf.photo.lights), conf.camera.preview():
             for i in xrange(conf.montage.number_of_photos):
                 count_down(i + 1, conf)
                 photo = Image.open(next(file_names))
