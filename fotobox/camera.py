@@ -14,7 +14,7 @@ class Camera:
         self._camera = cam
         self._size = size
 
-    def shoot_photos(self, file_name):
+    def shoot(self, file_name):
         return self._camera.capture_continuous(file_name, resize=self._size)
 
     @contextlib.contextmanager
