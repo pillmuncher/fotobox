@@ -40,7 +40,6 @@ def lightshow(seconds, conf):
     switch_on(conf.led.yellow)
     time.sleep(seconds)
     switch_on(conf.led.red)
-    time.sleep(seconds)
     switch_off(conf.led.green)
     switch_off(conf.led.yellow)
     switch_off(conf.led.red)
@@ -160,7 +159,7 @@ def handle_shoot(cmd, conf):
             conf.photo.file_mask.format(timestamp),
             resize=conf.photo.size,
         )
-        with flash(*conf.photo.lights), conf.camera.preview():
+        with flash(conf.photo.lights), conf.camera.preview():
             for i in xrange(conf.montage.number_of_photos):
                 count_down(i + 1, conf)
                 photo = Image.open(next(file_names))
@@ -271,7 +270,7 @@ class Button(PushButton):
 
 
 @contextlib.contextmanager
-def streams(conf):
+def bus_context(conf):
     make_button = inject(Button, conf.etc.bounce_time, EventLoopScheduler())
     buttons = (
         make_button(Shoot(conf.event.shoot)),
@@ -279,7 +278,7 @@ def streams(conf):
         make_button(Quit(conf.event.reboot)),
         make_button(Quit(conf.event.shutdown)),
     )
-    conf.bus = Subject()
+    bus = Subject()
     blinker_ticks = Observable.interval(conf.blink.interval)
     montage_ticks = Observable.interval(conf.montage.interval)
     handler = (
@@ -290,34 +289,34 @@ def streams(conf):
         .map(to_command)
         .merge(
             ThreadPoolScheduler(max_workers=conf.etc.workers),
-            conf.bus,
+            bus,
             blinker_ticks.map(const(Blink())),
             montage_ticks.map(const(ShowRandomMontage())),
         )
         .subscribe(on_next=inject(handle_command, conf))
     )
     try:
-        yield
+        yield bus
     finally:
         handler.dispose()
         montage_ticks.dispose()
         blinker_ticks.dispose()
-        conf.bus.dispose()
+        bus.dispose()
         for button in buttons:
             button.events.dispose()
 
 
 def main(conf):
     with gpio_context():
+        for light in conf.photo.lights:
+            setup_out(light)
+        setup_out(conf.led.red)
+        setup_out(conf.led.yellow)
+        setup_out(conf.led.green)
+        switch_on(conf.led.green)
         with ui_context(conf.screen.size) as conf.ui:
             with camera_context() as conf.camera:
-                with streams(conf):
-                    for light in conf.photo.lights:
-                        setup_out(light)
-                    setup_out(conf.led.red)
-                    setup_out(conf.led.yellow)
-                    setup_out(conf.led.green)
-                    switch_on(conf.led.green)
+                with bus_context(conf) as conf.bus:
                     try:
                         return conf.exit_code.get()
                     finally:
