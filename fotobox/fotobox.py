@@ -10,22 +10,18 @@ import os.path
 import random
 import time
 
-import picamera
-import PIL.Image
-import pygame
-import RPi.GPIO as GPIO
-
 from collections import namedtuple
 
+from PIL import Image
 from rx import Observable
 from rx.subjects import Subject
 from rx.concurrency import EventLoopScheduler, ThreadPoolScheduler
 
-from util import const, thread_thru, inject
-
-
-switch_on = inject(GPIO.output, True)
-switch_off = inject(GPIO.output, False)
+from .camera import context as camera_context
+from .gpio import setup_out, set_high, set_low, context as gpio_context
+from .gpio import PushButton, set_high as switch_on, set_low as switch_off
+from .ui import show_image, load_image, play_sound, context as ui_context
+from .util import const, thread_thru, inject
 
 
 def blink_once(led, conf):
@@ -50,42 +46,15 @@ def lightshow(seconds, conf):
     switch_off(conf.led.red)
 
 
-def lights_on(pins):
-    for pin in pins:
-        GPIO.output(pin, False)
-
-
-def lights_off(pins):
-    for pin in pins:
-        GPIO.output(pin, True)
-
-
-def play_sound(file_name):
-    pygame.mixer.music.load(file_name)
-    pygame.mixer.music.play(0)
-
-
-def stop_sound():
-    pygame.mixer.music.stop()
-
-
-def show_image(image, conf):
-    conf.screen.blit(image, conf.screen.offset)
-    pygame.display.flip()
-
-
 def show_overlay(file_name, position, seconds, conf):
-    img = PIL.Image.open(os.path.join(conf.etc.path, file_name))
-    pad = PIL.Image.new('RGB', (
+    img = Image.open(os.path.join(conf.etc.path, file_name))
+    pad = Image.new('RGB', (
         ((img.size[0] + 31) // 32) * 32,
         ((img.size[1] + 15) // 16) * 16,
     ))
     pad.paste(img, position)
-    overlay = conf.camera.add_overlay(pad.tostring(), size=img.size)
-    overlay.alpha = 64
-    overlay.layer = 3
-    time.sleep(seconds)
-    conf.camera.remove_overlay(overlay)
+    with conf.camera.overlay(pad.tostring(), size=img.size, alpha=64, layer=3):
+        time.sleep(seconds)
 
 
 def count_down(n, conf):
@@ -138,12 +107,21 @@ def make_collage(margin, background, img11, img12, img21, img22):
         top1 = margin.top
     left2 = left1 + img_width + margin.padding
     top2 = top1 + img_height + margin.padding
-    collage = PIL.Image.new('RGB', (int(width), int(height)), background)
+    collage = Image.new('RGB', (int(width), int(height)), background)
     collage.paste(img11, (int(left1), int(top1)))
     collage.paste(img12, (int(left2), int(top1)))
     collage.paste(img21, (int(left1), int(top2)))
     collage.paste(img22, (int(left2), int(top2)))
     return collage
+
+
+@contextlib.contextmanager
+def flash(lights):
+    set_low(*lights)
+    try:
+        yield
+    finally:
+        set_high(*lights)
 
 
 ButtonPressed = namedtuple('ButtonPressed', 'time command')
@@ -177,33 +155,29 @@ def handle_shoot(cmd, conf):
     with conf.idle_lock:
         photos = []
         montage = conf.montage.image.copy()
-        lights_on(conf.photo.lights)
         timestamp = time.strftime(conf.photo.time_mask)
         file_names = conf.camera.capture_continuous(
             conf.photo.file_mask.format(timestamp),
             resize=conf.photo.size,
         )
-        conf.camera.start_preview(hflip=True)
-        for i in xrange(conf.montage.number_of_photos):
-            count_down(i + 1, conf)
-            photo = PIL.Image.open(next(file_names))
-            photos.append(photo)
-            montage.paste(
-                photo
-                .copy()
-                .convert('RGBA')
-                .resize(conf.montage.photo.size, PIL.Image.ANTIALIAS),
-                conf.montage.photo.box[i],
-            )
-            time.sleep(5.0)
-        conf.bus.on_next(CreateCollage(photos, timestamp))
-        montage_file_name = conf.montage.full_mask.format(timestamp)
-        (PIL.Image
-            .blend(montage, conf.etc.watermark.image, .25)
-            .save(montage_file_name))
-        show_image(pygame.image.load(montage_file_name), conf)
-        conf.camera.stop_preview()
-        lights_off(conf.photo.lights)
+        with flash(conf.photo.lights), conf.camera.preview():
+            for i in xrange(conf.montage.number_of_photos):
+                count_down(i + 1, conf)
+                photo = Image.open(next(file_names))
+                photos.append(photo)
+                montage.paste(
+                    photo
+                    .copy()
+                    .convert('RGBA')
+                    .resize(conf.montage.photo.size, Image.ANTIALIAS),
+                    conf.montage.photo.box[i],
+                )
+                time.sleep(5.0)
+            conf.bus.on_next(CreateCollage(photos, timestamp))
+            montage_file_name = conf.montage.full_mask.format(timestamp)
+            montage = Image.blend(montage, conf.etc.watermark.image, .25)
+            montage.save(montage_file_name)
+            show_image(montage, conf.ui, conf.screen.offset, flip=True)
         time.sleep(conf.montage.interval)
 
 
@@ -215,11 +189,9 @@ def handle_quit(cmd, conf):
 @handle_command.register(CreateCollage)
 def handle_create_collage(cmd, conf):
     collage = make_collage(
-        conf.collage.margin,
-        conf.collage.background,
-        *cmd.photos)
+        conf.collage.margin, conf.collage.background, *cmd.photos)
     width, height = collage.size
-    printout = PIL.Image.new(
+    printout = Image.new(
         'RGB',
         (int(height * 1.5), height),
         conf.collage.background)
@@ -237,9 +209,9 @@ def handle_show_random_montage(cmd, conf):
                 conf.montage.full_mask.format,
                 glob.glob,
                 random.choice,
-                pygame.image.load,
-                inject(pygame.transform.scale, conf.screen.size),
-                inject(show_image, conf),
+                load_image,
+                inject(Image.resize, conf.screen.size, Image.ANTIALIAS),
+                inject(show_image, conf.ui, conf.screen.offset),
             )
         finally:
             conf.idle_lock.release()
@@ -277,77 +249,31 @@ def to_command(pushed):
         return pushed.log
 
 
-class Button(Subject):
+class Button(PushButton):
 
     def __init__(self, command, bounce_time, scheduler):
-        Subject.__init__(self)
         self.command = command
         self.log = Log(command.event.info)
+        self.events = Subject()
         self.pushes = (
             self
+            .events
             .observe_on(scheduler)
             .scan(detect_push)
             .where(is_pushed)
             .distinct_until_changed()
         )
-        GPIO.setup(command.event.port, GPIO.IN)
-        GPIO.add_event_detect(
-            command.event.port,
-            GPIO.BOTH,
-            bouncetime=bounce_time,
-            callback=self._handle)
+        PushButton.__init__(self, command.port, bounce_time)
 
-    def _handle(self, port):
-        if GPIO.input(port):
-            self.on_next(ButtonPressed(time.time(), self.command))
-        else:
-            self.on_next(ButtonReleased(time.time()))
+    def pressed(self):
+        self.events.on_next(ButtonPressed(time.time(), self.command))
 
-    def dispose(self):
-        GPIO.remove_command_detect(self.command.event.port)
-        Subject.dispose(self)
+    def released(self):
+        self.events.on_next(ButtonReleased(time.time()))
 
 
 @contextlib.contextmanager
-def _gpio(conf):
-    GPIO.setmode(GPIO.BOARD)
-    try:
-        GPIO.setup(conf.led.green, GPIO.OUT)
-        GPIO.setup(conf.led.yellow, GPIO.OUT)
-        GPIO.setup(conf.led.red, GPIO.OUT)
-        for light in conf.photo.lights:
-            GPIO.setup(light, GPIO.OUT)
-        switch_on(conf.led.green)
-        yield
-        lightshow(1, conf)
-    finally:
-        GPIO.cleanup()
-
-
-@contextlib.contextmanager
-def _pygame(conf):
-    pygame.init()
-    try:
-        conf.screen = pygame.display.set_mode(
-            conf.screen.size, pygame.FULLSCREEN)
-        pygame.display.set_caption('Photo Booth Pics')
-        pygame.mouse.set_visible(False)
-        pygame.mixer.pre_init(44100, -16, 1, 1024 * 3)
-        yield
-    finally:
-        pygame.mouse.set_visible(True)
-        pygame.quit()
-
-
-@contextlib.contextmanager
-def _picamera(conf):
-    with picamera.PiCamera() as conf.camera:
-        conf.camera.capture('/dev/null', 'png')
-        yield
-
-
-@contextlib.contextmanager
-def _rx(conf):
+def streams(conf):
     make_button = inject(Button, conf.etc.bounce_time, EventLoopScheduler())
     buttons = (
         make_button(Shoot(conf.event.shoot)),
@@ -384,5 +310,17 @@ def _rx(conf):
 
 
 def main(conf):
-    with _gpio(conf), _pygame(conf), _picamera(conf), _rx(conf):
-        return conf.exit_code.get()
+    with gpio_context():
+        with ui_context(conf.screen.size) as conf.ui:
+            with camera_context() as conf.camera:
+                with streams(conf):
+                    for light in conf.photo.lights:
+                        setup_out(light)
+                    setup_out(conf.led.red)
+                    setup_out(conf.led.yellow)
+                    setup_out(conf.led.green)
+                    switch_on(conf.led.green)
+                    try:
+                        return conf.exit_code.get()
+                    finally:
+                        lightshow(1, conf)
