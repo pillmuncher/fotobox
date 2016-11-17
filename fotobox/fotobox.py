@@ -141,12 +141,12 @@ def handle_log(cmd, conf):
 @handle_command.register(Shoot)
 def handle_shoot(cmd, conf):
     with conf.shooting_lock, flash(conf.photo.lights), conf.camera.preview():
-        photos = []
-        montage = conf.montage.image.copy()
         timestamp = time.strftime(conf.photo.time_mask)
         file_names = conf.camera.shoot_photos(
             conf.photo.file_mask.format(timestamp),
         )
+        photos = []
+        montage = conf.montage.image.copy()
         for i in xrange(conf.montage.number_of_photos):
             count_down(i + 1, conf)
             photo = Image.open(next(file_names))

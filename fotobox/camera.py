@@ -18,8 +18,8 @@ class Camera:
         return self._camera.capture_continuous(file_name, resize=self._size)
 
     @contextlib.contextmanager
-    def preview(self, flip=True):
-        self._camera.start_preview(hflip=flip)
+    def preview(self):
+        self._camera.start_preview(hflip=True)
         try:
             yield
         finally:
