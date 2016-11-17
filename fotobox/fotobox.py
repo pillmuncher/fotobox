@@ -18,9 +18,9 @@ from rx.subjects import Subject
 from rx.concurrency import EventLoopScheduler, ThreadPoolScheduler
 
 from .camera import context as camera_context
+from .display import show_image, load_image, play_sound, context as ui_context
 from .gpio import PushButton, setup_out, switch_on, switch_off, flash
 from .gpio import context as gpio_context
-from .ui import show_image, load_image, play_sound, context as ui_context
 from .util import const, thread_thru, inject
 
 
@@ -161,7 +161,7 @@ def handle_shoot(cmd, conf):
             time.sleep(5)
         montage = Image.blend(montage, conf.etc.watermark.image, .25)
         montage.save(conf.montage.full_mask.format(timestamp))
-        show_image(montage, conf.ui, conf.screen.offset, flip=True)
+        show_image(montage, conf.display, conf.screen.offset, flip=True)
         conf.bus.on_next(CreateCollage(photos, timestamp))
         time.sleep(conf.montage.interval)
 
@@ -194,7 +194,7 @@ def handle_show_random_montage(cmd, conf):
                 random.choice,
                 load_image,
                 lambda img: img.resize(conf.screen.size, Image.ANTIALIAS),
-                inject(show_image, conf.ui, conf.screen.offset),
+                inject(show_image, conf.display, conf.screen.offset),
             )
         finally:
             conf.shooting_lock.release()
@@ -300,7 +300,7 @@ def main(conf):
         setup_out(conf.led.yellow)
         setup_out(conf.led.green)
         switch_on(conf.led.green)
-        with ui_context(size=conf.screen.size) as conf.ui:
+        with ui_context(size=conf.screen.size) as conf.display:
             with camera_context(size=conf.photo.size) as conf.camera:
                 with bus_context(conf) as conf.bus:
                     try:
