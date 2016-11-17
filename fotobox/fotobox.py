@@ -18,7 +18,8 @@ from rx.subjects import Subject
 from rx.concurrency import EventLoopScheduler, ThreadPoolScheduler
 
 from .camera import context as camera_context
-from .display import show_image, load_image, play_sound, context as ui_context
+from .display import show_image, load_image, play_sound
+from .display import context as display_context
 from .gpio import PushButton, setup_out, switch_on, switch_off, flash
 from .gpio import context as gpio_context
 from .util import const, thread_thru, inject
@@ -298,7 +299,7 @@ def main(conf):
         setup_out(conf.led.yellow)
         setup_out(conf.led.green)
         switch_on(conf.led.green)
-        with ui_context(size=conf.screen.size) as conf.display:
+        with display_context(size=conf.screen.size) as conf.display:
             with camera_context(size=conf.photo.size) as conf.camera:
                 with bus_context(conf) as conf.bus:
                     try:
