@@ -71,14 +71,14 @@ def count_down(n, conf):
             1,
             conf,
         )
-    if conf.etc.songs.enabled:
-        thread_thru(conf.etc.songs.mask, glob.glob, random.choice, play_sound)
     show_overlay(
         conf.etc.smile.full_image_file,
         conf.etc.smile.image_position,
         1.5,
         conf,
     )
+    if conf.etc.songs.enabled:
+        thread_thru(conf.etc.songs.mask, glob.glob, random.choice, play_sound)
 
 
 def create_collage(margin, background, img11, img12, img21, img22):
