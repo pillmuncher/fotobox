@@ -63,7 +63,7 @@ def count_down(n, conf):
         2,
         conf,
     )
-    for i in (3, 2, 1):
+    for i in 3, 2, 1:
         play_sound(conf.etc.countdown.full_sound_mask.format(i))
         show_overlay(
             conf.etc.countdown.full_image_mask.format(i),
