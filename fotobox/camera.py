@@ -26,9 +26,8 @@ class Camera:
 
     @contextlib.contextmanager
     def overlay(self, image, size, alpha, layer):
-        o = self._camera.add_overlay(image.tostring(), size=size)
-        o.alpha = 64
-        o.layer = 3
+        o = self._camera.add_overlay(
+            image.tostring(), size=size, alpha=alpha, layer=layer)
         try:
             yield
         finally:

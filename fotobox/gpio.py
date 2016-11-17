@@ -8,15 +8,6 @@ import contextlib
 import RPi.GPIO as GPIO
 
 
-@contextlib.contextmanager
-def context():
-    GPIO.setmode(GPIO.BOARD)
-    try:
-        yield
-    finally:
-        GPIO.cleanup()
-
-
 class PushButton:
 
     def __init__(self, port, bounce_time):
@@ -49,3 +40,12 @@ def set_high(*ports):
 def set_low(*ports):
     for port in ports:
         GPIO.output(port, False)
+
+
+@contextlib.contextmanager
+def context():
+    GPIO.setmode(GPIO.BOARD)
+    try:
+        yield
+    finally:
+        GPIO.cleanup()
