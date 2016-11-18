@@ -40,20 +40,20 @@ def config(file_name):
     with open(file_name, 'r') as config_file:
         c = Config(json.load(config_file))
 
-    resource = partial(os.path.join, c.resource_path)
+    resource_path = partial(os.path.join, c.resource_path)
 
     c.photo.range = range(4)
     c.photo.size = c.photo.width, c.photo.height
-    c.photo.countdown.prepare.image_mask = resource(
+    c.photo.countdown.prepare.image_mask = resource_path(
         c.photo.countdown.prepare.image_mask,
     )
-    c.photo.countdown.count.sound_mask = resource(
+    c.photo.countdown.count.sound_mask = resource_path(
         c.photo.countdown.count.sound_mask,
     )
-    c.photo.countdown.count.image_mask = resource(
+    c.photo.countdown.count.image_mask = resource_path(
         c.photo.countdown.count.image_mask,
     )
-    c.photo.countdown.smile.image_file = resource(
+    c.photo.countdown.smile.image_file = resource_path(
         c.photo.countdown.smile.image_file,
     )
     c.screen.size = c.screen.width, c.screen.height
@@ -83,7 +83,7 @@ def config(file_name):
         .open(c.montage.watermark.image_file)
         .resize(c.screen.size, Image.ANTIALIAS)
     )
-    c.printout.logo.image_file = resource(
+    c.printout.logo.image_file = resource_path(
         c.printout.logo.image_file,
     )
     c.printout.logo.image = Image.open(c.printout.logo.image_file)
