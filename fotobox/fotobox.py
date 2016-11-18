@@ -23,6 +23,22 @@ from .gpio import context as gpio_context
 from .util import const, thread_thru, inject
 
 
+ButtonPressed = namedtuple('ButtonPressed', 'time command')
+ButtonReleased = namedtuple('ButtonReleased', 'time')
+ButtonPushed = namedtuple('ButtonPushed', 'command log pressed released')
+
+is_pressed = inject(isinstance, ButtonPressed)
+is_released = inject(isinstance, ButtonReleased)
+is_pushed = inject(isinstance, ButtonPushed)
+
+Log = namedtuple('Log', 'text')
+Shoot = namedtuple('Shoot', 'event')
+Quit = namedtuple('Quit', 'event')
+CreatePrintout = namedtuple('CreatePrintout', 'photos time')
+ShowRandomMontage = namedtuple('ShowRandomMontage', '')
+Blink = namedtuple('Blink', '')
+
+
 def blink_once(led, conf):
     switch_on(led)
     time.sleep(conf.blink.interval / 2)
@@ -114,22 +130,6 @@ def create_printout(margin, background, img11, img12, img21, img22):
     printout.paste(img21, (int(left1), int(top2)))
     printout.paste(img22, (int(left2), int(top2)))
     return printout
-
-
-ButtonPressed = namedtuple('ButtonPressed', 'time command')
-ButtonReleased = namedtuple('ButtonReleased', 'time')
-ButtonPushed = namedtuple('ButtonPushed', 'command log pressed released')
-
-is_pressed = inject(isinstance, ButtonPressed)
-is_released = inject(isinstance, ButtonReleased)
-is_pushed = inject(isinstance, ButtonPushed)
-
-Log = namedtuple('Log', 'text')
-Shoot = namedtuple('Shoot', 'event')
-Quit = namedtuple('Quit', 'event')
-CreatePrintout = namedtuple('CreatePrintout', 'photos time')
-ShowRandomMontage = namedtuple('ShowRandomMontage', '')
-Blink = namedtuple('Blink', '')
 
 
 @functools.singledispatch
