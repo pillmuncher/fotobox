@@ -39,6 +39,112 @@ is_released = inject(isinstance, ButtonReleased)
 is_pushed = inject(isinstance, ButtonPushed)
 
 
+@functools.singledispatch
+def handle_command(cmd, conf):
+    raise NotImplementedError
+
+
+@handle_command.register(Log)
+def handle_log(cmd, conf):
+    print(cmd.text)
+
+
+@handle_command.register(Shoot)
+def handle_shoot(cmd, conf):
+    with conf.shooting_lock, flash(conf.photo.lights), conf.camera.preview():
+        timestamp = time.strftime(conf.photo.time_mask)
+        file_names = conf.camera.shoot(conf.photo.file_mask.format(timestamp))
+        montage = conf.montage.image.copy()
+        photos = []
+        for i in conf.photo.range:
+            count_down(i + 1, conf)
+            photo = Image.open(next(file_names))
+            photos.append(photo)
+            montage.paste(
+                photo
+                .copy()
+                .convert('RGBA')
+                .resize(conf.montage.photo.size, Image.ANTIALIAS),
+                conf.montage.photo.box[i],
+            )
+            time.sleep(5)
+        montage = Image.blend(montage, conf.montage.watermark.image, .25)
+        montage.save(conf.montage.file_mask.format(timestamp))
+        show_image(montage, conf.display, conf.screen.offset, flip=True)
+        conf.bus.on_next(CreatePrintout(photos, timestamp))
+        time.sleep(conf.montage.interval)
+
+
+@handle_command.register(Quit)
+def handle_quit(cmd, conf):
+    conf.exit_code.put(cmd.event.code)
+
+
+@handle_command.register(CreatePrintout)
+def handle_create_printout(cmd, conf):
+    printout = create_printout(
+        conf.printout.margin, conf.printout.background, *cmd.photos)
+    width, height = printout.size
+    size = int(height * 1.5), height
+    printout = Image.new('RGB', size, conf.printout.background)
+    printout.paste(printout, (0, 0))
+    printout.paste(conf.printout.logo.image, (width, 0))
+    thread_thru(
+        time.strftime(conf.printout.time_mask, cmd.time),
+        conf.printout.file_mask.format,
+        printout.save,
+    )
+
+
+@handle_command.register(ShowRandomMontage)
+def handle_show_random_montage(cmd, conf):
+    if conf.shooting_lock.acquire(blocking=False):
+        try:
+            thread_thru(
+                '*',
+                conf.montage.file_mask.format,
+                glob.glob,
+                random.choice,
+                load_image,
+                lambda img: img.resize(conf.screen.size, Image.ANTIALIAS),
+                inject(show_image, conf.display, conf.screen.offset),
+            )
+        finally:
+            conf.shooting_lock.release()
+
+
+@handle_command.register(Blink)
+def handle_blink(cmd, conf):
+    if conf.shooting_lock.acquire(blocking=False):
+        conf.shooting_lock.release()
+        blink_once(conf.led.yellow, conf)
+    else:
+        blink_once(conf.led.red, conf)
+
+
+class Button(PushButton):
+
+    def __init__(self, command, bounce_time, scheduler):
+        self.command = command
+        self.log = Log(command.event.info)
+        self.events = Subject()
+        self.pushes = (
+            self
+            .events
+            .observe_on(scheduler)
+            .scan(detect_push)
+            .where(is_pushed)
+            .distinct_until_changed()
+        )
+        PushButton.__init__(self, command.port, bounce_time)
+
+    def pressed(self):
+        self.events.on_next(ButtonPressed(time.time(), self.command))
+
+    def released(self):
+        self.events.on_next(ButtonReleased(time.time()))
+
+
 def blink_once(led, conf):
     switch_on(led)
     time.sleep(conf.blink.interval / 2)
@@ -132,89 +238,6 @@ def create_printout(margin, background, img11, img12, img21, img22):
     return printout
 
 
-@functools.singledispatch
-def handle_command(cmd, conf):
-    raise NotImplementedError
-
-
-@handle_command.register(Log)
-def handle_log(cmd, conf):
-    print(cmd.text)
-
-
-@handle_command.register(Shoot)
-def handle_shoot(cmd, conf):
-    with conf.shooting_lock, flash(conf.photo.lights), conf.camera.preview():
-        timestamp = time.strftime(conf.photo.time_mask)
-        file_names = conf.camera.shoot(conf.photo.file_mask.format(timestamp))
-        montage = conf.montage.image.copy()
-        photos = []
-        for i in conf.photo.range:
-            count_down(i + 1, conf)
-            photo = Image.open(next(file_names))
-            photos.append(photo)
-            montage.paste(
-                photo
-                .copy()
-                .convert('RGBA')
-                .resize(conf.montage.photo.size, Image.ANTIALIAS),
-                conf.montage.photo.box[i],
-            )
-            time.sleep(5)
-        montage = Image.blend(montage, conf.montage.watermark.image, .25)
-        montage.save(conf.montage.file_mask.format(timestamp))
-        show_image(montage, conf.display, conf.screen.offset, flip=True)
-        conf.bus.on_next(CreatePrintout(photos, timestamp))
-        time.sleep(conf.montage.interval)
-
-
-@handle_command.register(Quit)
-def handle_quit(cmd, conf):
-    conf.exit_code.put(cmd.event.code)
-
-
-@handle_command.register(CreatePrintout)
-def handle_create_printout(cmd, conf):
-    printout = create_printout(
-        conf.printout.margin, conf.printout.background, *cmd.photos)
-    width, height = printout.size
-    size = int(height * 1.5), height
-    printout = Image.new('RGB', size, conf.printout.background)
-    printout.paste(printout, (0, 0))
-    printout.paste(conf.printout.logo.image, (width, 0))
-    thread_thru(
-        time.strftime(conf.printout.time_mask, cmd.time),
-        conf.printout.file_mask.format,
-        printout.save,
-    )
-
-
-@handle_command.register(ShowRandomMontage)
-def handle_show_random_montage(cmd, conf):
-    if conf.shooting_lock.acquire(blocking=False):
-        try:
-            thread_thru(
-                '*',
-                conf.montage.file_mask.format,
-                glob.glob,
-                random.choice,
-                load_image,
-                lambda img: img.resize(conf.screen.size, Image.ANTIALIAS),
-                inject(show_image, conf.display, conf.screen.offset),
-            )
-        finally:
-            conf.shooting_lock.release()
-
-
-@handle_command.register(Blink)
-def handle_blink(cmd, conf):
-    if conf.shooting_lock.acquire(blocking=False):
-        conf.shooting_lock.release()
-        blink_once(conf.led.yellow, conf)
-    else:
-        blink_once(conf.led.red, conf)
-
-
 def detect_push(prev, curr):
     assert prev.time <= curr.time
     if is_pressed(prev) and is_released(curr):
@@ -236,29 +259,6 @@ def to_command(pushed):
         return pushed.command
     else:
         return pushed.log
-
-
-class Button(PushButton):
-
-    def __init__(self, command, bounce_time, scheduler):
-        self.command = command
-        self.log = Log(command.event.info)
-        self.events = Subject()
-        self.pushes = (
-            self
-            .events
-            .observe_on(scheduler)
-            .scan(detect_push)
-            .where(is_pushed)
-            .distinct_until_changed()
-        )
-        PushButton.__init__(self, command.port, bounce_time)
-
-    def pressed(self):
-        self.events.on_next(ButtonPressed(time.time(), self.command))
-
-    def released(self):
-        self.events.on_next(ButtonReleased(time.time()))
 
 
 @contextlib.contextmanager
