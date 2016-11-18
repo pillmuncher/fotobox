@@ -1,22 +1,17 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-from __future__ import print_function, absolute_import, division
-
 import contextlib
 import functools
 import glob
 import os.path
 import random
 import time
-
+import PIL.Image as Image
 from collections import namedtuple
-
-from PIL import Image
 from rx import Observable
 from rx.subjects import Subject
 from rx.concurrency import EventLoopScheduler, ThreadPoolScheduler
-
 from .camera import context as camera_context
 from .display import show_image, load_image, play_sound
 from .display import context as display_context
@@ -47,7 +42,7 @@ def lightshow(seconds, conf):
 
 
 def show_overlay(file_name, position, seconds, conf):
-    img = Image.open(os.path.join(conf.etc.path, file_name))
+    img = Image.open(os.path.join(conf.resource_path, file_name))
     pad = Image.new('RGB', (
         ((img.size[0] + 31) // 32) * 32,
         ((img.size[1] + 15) // 16) * 16,
@@ -59,30 +54,35 @@ def show_overlay(file_name, position, seconds, conf):
 
 def count_down(n, conf):
     show_overlay(
-        conf.etc.prepare.full_image_mask.format(n),
-        conf.etc.prepare.image_position,
+        conf.photo.countdown.prepare.image_mask.format(n),
+        conf.photo.countdown.prepare.image_position,
         2,
         conf,
     )
     for i in 3, 2, 1:
-        play_sound(conf.etc.countdown.full_sound_mask.format(i))
+        play_sound(conf.photo.countdown.sound_mask.format(i))
         show_overlay(
-            conf.etc.countdown.full_image_mask.format(i),
-            conf.etc.countdown.image_position,
+            conf.photo.countdown.image_mask.format(i),
+            conf.photo.countdown.image_position,
             1,
             conf,
         )
     show_overlay(
-        conf.etc.smile.full_image_file,
-        conf.etc.smile.image_position,
+        conf.photo.countdown.smile.image_file,
+        conf.photo.countdown.smile.image_position,
         1.5,
         conf,
     )
-    if conf.etc.songs.enabled:
-        thread_thru(conf.etc.songs.mask, glob.glob, random.choice, play_sound)
+    if conf.photo.countdown.songs.enabled:
+        thread_thru(
+            conf.photo.countdown.songs.glob_mask,
+            glob.glob,
+            random.choice,
+            play_sound,
+        )
 
 
-def create_collage(margin, background, img11, img12, img21, img22):
+def create_printout(margin, background, img11, img12, img21, img22):
     assert img11.size == img21.size == img21.size == img22.size
     img_width, img_height = img11.size
     width = img_width * 2 + margin.padding + margin.left + margin.right
@@ -105,12 +105,12 @@ def create_collage(margin, background, img11, img12, img21, img22):
         top1 = margin.top
     left2 = left1 + img_width + margin.padding
     top2 = top1 + img_height + margin.padding
-    collage = Image.new('RGB', (int(width), int(height)), background)
-    collage.paste(img11, (int(left1), int(top1)))
-    collage.paste(img12, (int(left2), int(top1)))
-    collage.paste(img21, (int(left1), int(top2)))
-    collage.paste(img22, (int(left2), int(top2)))
-    return collage
+    printout = Image.new('RGB', (int(width), int(height)), background)
+    printout.paste(img11, (int(left1), int(top1)))
+    printout.paste(img12, (int(left2), int(top1)))
+    printout.paste(img21, (int(left1), int(top2)))
+    printout.paste(img22, (int(left2), int(top2)))
+    return printout
 
 
 ButtonPressed = namedtuple('ButtonPressed', 'time command')
@@ -124,7 +124,7 @@ is_pushed = inject(isinstance, ButtonPushed)
 Log = namedtuple('Log', 'text')
 Shoot = namedtuple('Shoot', 'event')
 Quit = namedtuple('Quit', 'event')
-CreateCollage = namedtuple('CreateCollage', 'photos time')
+CreatePrintout = namedtuple('CreatePrintout', 'photos time')
 ShowRandomMontage = namedtuple('ShowRandomMontage', '')
 Blink = namedtuple('Blink', '')
 
@@ -146,7 +146,7 @@ def handle_shoot(cmd, conf):
         file_names = conf.camera.shoot(conf.photo.file_mask.format(timestamp))
         montage = conf.montage.image.copy()
         photos = []
-        for i in xrange(conf.montage.number_of_photos):
+        for i in conf.photo.range:
             count_down(i + 1, conf)
             photo = Image.open(next(file_names))
             photos.append(photo)
@@ -158,10 +158,10 @@ def handle_shoot(cmd, conf):
                 conf.montage.photo.box[i],
             )
             time.sleep(5)
-        montage = Image.blend(montage, conf.etc.watermark.image, .25)
-        montage.save(conf.montage.full_mask.format(timestamp))
+        montage = Image.blend(montage, conf.montage.watermark.image, .25)
+        montage.save(conf.montage.file_mask.format(timestamp))
         show_image(montage, conf.display, conf.screen.offset, flip=True)
-        conf.bus.on_next(CreateCollage(photos, timestamp))
+        conf.bus.on_next(CreatePrintout(photos, timestamp))
         time.sleep(conf.montage.interval)
 
 
@@ -170,16 +170,16 @@ def handle_quit(cmd, conf):
     conf.exit_code.put(cmd.event.code)
 
 
-@handle_command.register(CreateCollage)
-def handle_create_collage(cmd, conf):
-    collage = create_collage(
-        conf.collage.margin, conf.collage.background, *cmd.photos)
-    width, height = collage.size
+@handle_command.register(CreatePrintout)
+def handle_create_printout(cmd, conf):
+    printout = create_printout(
+        conf.printout.margin, conf.printout.background, *cmd.photos)
+    width, height = printout.size
     size = int(height * 1.5), height
-    printout = Image.new('RGB', size, conf.collage.background)
-    printout.paste(collage, (0, 0))
-    printout.paste(conf.collage.logo, (width, 0))
-    printout.save(conf.collage.full_mask.format(cmd.time))
+    printout = Image.new('RGB', size, conf.printout.background)
+    printout.paste(printout, (0, 0))
+    printout.paste(conf.printout.logo.image, (width, 0))
+    printout.save(conf.printout.file_mask.format(cmd.time))
 
 
 @handle_command.register(ShowRandomMontage)
@@ -188,7 +188,7 @@ def handle_show_random_montage(cmd, conf):
         try:
             thread_thru(
                 '*',
-                conf.montage.full_mask.format,
+                conf.montage.file_mask.format,
                 glob.glob,
                 random.choice,
                 load_image,
@@ -256,7 +256,7 @@ class Button(PushButton):
 
 @contextlib.contextmanager
 def bus_context(conf):
-    make_button = inject(Button, conf.etc.bounce_time, EventLoopScheduler())
+    make_button = inject(Button, conf.bounce_time, EventLoopScheduler())
     buttons = (
         make_button(Shoot(conf.event.shoot)),
         make_button(Quit(conf.event.quit)),
@@ -273,7 +273,7 @@ def bus_context(conf):
         .distinct_until_changed()
         .map(to_command)
         .merge(
-            ThreadPoolScheduler(max_workers=conf.etc.workers),
+            ThreadPoolScheduler(max_workers=conf.workers),
             bus,
             blinker_ticks.map(const(Blink())),
             montage_ticks.map(const(ShowRandomMontage())),

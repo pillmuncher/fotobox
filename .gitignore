@@ -12,3 +12,4 @@ dist
 ez_setup.py
 python2.7.exe.stackdump
 *.vim
+conf.txt
