@@ -7,7 +7,7 @@ import queue
 import threading
 import PIL.Image as Image
 from functools import partial
-from fotobox import main
+from .fotobox import main
 
 
 class Config(object):
