@@ -19,14 +19,14 @@ class PushButton:
 
     def _handle(self, port):
         if GPIO.input(port):
-            self.pressed(port)
+            self.pressed()
         else:
-            self.released(port)
+            self.released()
 
-    def pressed(self, port):
+    def pressed(self):
         pass
 
-    def released(self, port):
+    def released(self):
         pass
 
 
