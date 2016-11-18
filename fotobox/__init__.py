@@ -26,7 +26,7 @@ class Config(object):
 
 def config(file_name):
 
-    def photo_length(total, padding, margin_a, margin_b):
+    def side_length(total, padding, margin_a, margin_b):
         return (total - (margin_a + padding + margin_b)) // 2
 
     def get_box(n, pad_width, pad_height):
@@ -59,13 +59,13 @@ def config(file_name):
     c.screen.size = c.screen.width, c.screen.height
     c.screen.rect = 0, 0, c.screen.width, c.screen.height
     c.montage.photo = Config({})
-    c.montage.photo.width = photo_length(
+    c.montage.photo.width = side_length(
         c.screen.width,
         c.montage.margin.padding,
         c.montage.margin.left,
         c.montage.margin.right,
     )
-    c.montage.photo.height = photo_length(
+    c.montage.photo.height = side_length(
         c.screen.height,
         c.montage.margin.padding,
         c.montage.margin.top,

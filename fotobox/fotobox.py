@@ -107,7 +107,7 @@ def handle_show_random_montage(cmd, conf):
                 random.choice,
                 load_image,
                 lambda img: img.resize(conf.screen.size, Image.ANTIALIAS),
-                inject(show_image, conf.display, conf.screen.offset),
+                lambda img: show_image(img, conf.display, conf.screen.offset),
             )
         finally:
             conf.shooting_lock.release()
@@ -263,12 +263,12 @@ class Button(PushButton):
 
 @contextlib.contextmanager
 def bus_context(conf):
-    make_button = inject(Button, conf.bounce_time, EventLoopScheduler())
+    event_loop = EventLoopScheduler()
     buttons = (
-        make_button(Shoot(conf.event.shoot)),
-        make_button(Quit(conf.event.quit)),
-        make_button(Quit(conf.event.reboot)),
-        make_button(Quit(conf.event.shutdown)),
+        Button(Shoot(conf.event.shoot), conf.bounce_time, event_loop),
+        Button(Quit(conf.event.quit), conf.bounce_time, event_loop),
+        Button(Quit(conf.event.reboot), conf.bounce_time, event_loop),
+        Button(Quit(conf.event.shutdown), conf.bounce_time, event_loop),
     )
     bus = Subject()
     blinker_ticks = Observable.interval(conf.blink.interval)
@@ -285,7 +285,7 @@ def bus_context(conf):
             blinker_ticks.map(const(Blink())),
             montage_ticks.map(const(ShowRandomMontage())),
         )
-        .subscribe(on_next=inject(handle_command, conf))
+        .subscribe(on_next=lambda command: handle_command(command, conf))
     )
     try:
         yield bus
