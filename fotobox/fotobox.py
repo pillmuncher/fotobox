@@ -7,11 +7,13 @@ import glob
 import os.path
 import random
 import time
-import PIL.Image as Image
 from collections import namedtuple
+
+import PIL.Image as Image
 from rx import Observable
 from rx.subjects import Subject
 from rx.concurrency import EventLoopScheduler, ThreadPoolScheduler
+
 from .camera import context as camera_context
 from .display import show_image, load_image, play_sound
 from .display import context as display_context
@@ -52,9 +54,9 @@ def show_overlay(file_name, position, seconds, conf):
         time.sleep(seconds)
 
 
-def count_down(n, conf):
+def count_down(number, conf):
     show_overlay(
-        conf.photo.countdown.prepare.image_mask.format(n),
+        conf.photo.countdown.prepare.image_mask.format(number),
         conf.photo.countdown.prepare.image_position,
         2,
         conf,
@@ -82,7 +84,8 @@ def count_down(n, conf):
         )
 
 
-def create_printout(margin, background, img11, img12, img21, img22):
+def create_printout(margin, background, images):
+    img11, img12, img21, img22 = images
     assert img11.size == img21.size == img21.size == img22.size
     img_width, img_height = img11.size
     width = img_width * 2 + margin.padding + margin.left + margin.right
@@ -173,7 +176,7 @@ def handle_quit(cmd, conf):
 @handle_command.register(CreatePrintout)
 def handle_create_printout(cmd, conf):
     printout = create_printout(
-        conf.printout.margin, conf.printout.background, *cmd.photos)
+        conf.printout.margin, conf.printout.background, cmd.photos)
     width, height = printout.size
     size = int(height * 1.5), height
     printout = Image.new('RGB', size, conf.printout.background)

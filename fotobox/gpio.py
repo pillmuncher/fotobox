@@ -2,7 +2,9 @@
 # coding: utf-8
 
 import contextlib
+
 import RPi.GPIO as GPIO
+
 from .util import inject
 
 

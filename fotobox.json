@@ -76,7 +76,6 @@
   "printout": {
     "file_mask": "/var/fotos/printouts/{}.jpg",
     "time_mask": "Ausdruck am %Y-%m-%d um %H-%M-%S Uhr",
-    "foreground": [0, 0, 0],
     "background": [255, 255, 255],
     "margin": {
       "left": 50,
