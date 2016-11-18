@@ -23,6 +23,13 @@ from .gpio import context as gpio_context
 from .util import const, thread_thru, inject
 
 
+Log = namedtuple('Log', 'text')
+Shoot = namedtuple('Shoot', 'event')
+Quit = namedtuple('Quit', 'event')
+CreatePrintout = namedtuple('CreatePrintout', 'photos time')
+ShowRandomMontage = namedtuple('ShowRandomMontage', '')
+Blink = namedtuple('Blink', '')
+
 ButtonPressed = namedtuple('ButtonPressed', 'time command')
 ButtonReleased = namedtuple('ButtonReleased', 'time')
 ButtonPushed = namedtuple('ButtonPushed', 'command log pressed released')
@@ -30,13 +37,6 @@ ButtonPushed = namedtuple('ButtonPushed', 'command log pressed released')
 is_pressed = inject(isinstance, ButtonPressed)
 is_released = inject(isinstance, ButtonReleased)
 is_pushed = inject(isinstance, ButtonPushed)
-
-Log = namedtuple('Log', 'text')
-Shoot = namedtuple('Shoot', 'event')
-Quit = namedtuple('Quit', 'event')
-CreatePrintout = namedtuple('CreatePrintout', 'photos time')
-ShowRandomMontage = namedtuple('ShowRandomMontage', '')
-Blink = namedtuple('Blink', '')
 
 
 def blink_once(led, conf):
