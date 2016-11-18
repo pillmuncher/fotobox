@@ -85,8 +85,7 @@ def count_down(number, conf):
         )
 
 
-def create_printout(margin, background, images):
-    img11, img12, img21, img22 = images
+def create_printout(margin, background, img11, img12, img21, img22):
     assert img11.size == img21.size == img21.size == img22.size
     img_width, img_height = img11.size
     width = img_width * 2 + margin.padding + margin.left + margin.right
@@ -177,7 +176,7 @@ def handle_quit(cmd, conf):
 @handle_command.register(CreatePrintout)
 def handle_create_printout(cmd, conf):
     printout = create_printout(
-        conf.printout.margin, conf.printout.background, cmd.photos)
+        conf.printout.margin, conf.printout.background, *cmd.photos)
     width, height = printout.size
     size = int(height * 1.5), height
     printout = Image.new('RGB', size, conf.printout.background)
