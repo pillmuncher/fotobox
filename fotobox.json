@@ -33,22 +33,24 @@
     "width": 2592,
     "height": 1944,
     "lights": [13, 21, 19, 11],
-    "prepare": {
-      "image_mask": "countdown/prepare_{}.jpg",
-      "image_position": [0, 0]
-    },
-    "count": {
-      "sound_mask": "countdown/count_{}.mp3",
-      "image_mask": "countdown/count_{}.jpg",
-      "image_position": [0, 0]
-    },
-    "smile": {
-      "image_file": "countdown/smile.png",
-      "image_position": [0, 0]
-    },
-    "songs": {
-      "enabled": true,
-      "glob_mask": "countdown/songs/*.mp3"
+    "countdown": {
+      "prepare": {
+        "image_mask": "countdown/prepare_{}.jpg",
+        "image_position": [0, 0]
+      },
+      "count": {
+        "sound_mask": "countdown/count_{}.mp3",
+        "image_mask": "countdown/count_{}.jpg",
+        "image_position": [0, 0]
+      },
+      "smile": {
+        "image_file": "countdown/smile.png",
+        "image_position": [0, 0]
+      },
+      "songs": {
+        "enabled": true,
+        "glob_mask": "countdown/songs/*.mp3"
+      }
     }
   },
   "screen": {

@@ -63,10 +63,10 @@ def count_down(number, conf):
         conf,
     )
     for i in 3, 2, 1:
-        play_sound(conf.photo.countdown.sound_mask.format(i))
+        play_sound(conf.photo.countdown.count.sound_mask.format(i))
         show_overlay(
-            conf.photo.countdown.image_mask.format(i),
-            conf.photo.countdown.image_position,
+            conf.photo.countdown.count.image_mask.format(i),
+            conf.photo.countdown.count.image_position,
             1,
             conf,
         )
@@ -182,7 +182,11 @@ def handle_create_printout(cmd, conf):
     printout = Image.new('RGB', size, conf.printout.background)
     printout.paste(printout, (0, 0))
     printout.paste(conf.printout.logo.image, (width, 0))
-    printout.save(conf.printout.file_mask.format(cmd.time))
+    thread_thru(
+        time.strftime(conf.printout.time_mask, cmd.time),
+        conf.printout.file_mask.format,
+        printout.save,
+    )
 
 
 @handle_command.register(ShowRandomMontage)
