@@ -122,29 +122,6 @@ def handle_blink(cmd, conf):
         blink_once(conf.led.red, conf)
 
 
-class Button(PushButton):
-
-    def __init__(self, command, bounce_time, scheduler):
-        self.command = command
-        self.log = Log(command.event.info)
-        self.events = Subject()
-        self.pushes = (
-            self
-            .events
-            .observe_on(scheduler)
-            .scan(detect_push)
-            .where(is_pushed)
-            .distinct_until_changed()
-        )
-        PushButton.__init__(self, command.port, bounce_time)
-
-    def pressed(self):
-        self.events.on_next(ButtonPressed(time.time(), self.command))
-
-    def released(self):
-        self.events.on_next(ButtonReleased(time.time()))
-
-
 def blink_once(led, conf):
     switch_on(led)
     time.sleep(conf.blink.interval / 2)
@@ -259,6 +236,29 @@ def to_command(pushed):
         return pushed.command
     else:
         return pushed.log
+
+
+class Button(PushButton):
+
+    def __init__(self, command, bounce_time, scheduler):
+        self.command = command
+        self.log = Log(command.event.info)
+        self.events = Subject()
+        self.pushes = (
+            self
+            .events
+            .observe_on(scheduler)
+            .scan(detect_push)
+            .where(is_pushed)
+            .distinct_until_changed()
+        )
+        PushButton.__init__(self, command.port, bounce_time)
+
+    def pressed(self):
+        self.events.on_next(ButtonPressed(time.time(), self.command))
+
+    def released(self):
+        self.events.on_next(ButtonReleased(time.time()))
 
 
 @contextlib.contextmanager
