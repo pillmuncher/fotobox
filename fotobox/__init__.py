@@ -5,9 +5,10 @@ import json
 import os.path
 import queue
 import threading
+
 from functools import partial
 
-import PIL.Image as Image
+from PIL import Image
 
 from .fotobox import main
 

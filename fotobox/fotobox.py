@@ -7,9 +7,10 @@ import glob
 import os.path
 import random
 import time
+
 from collections import namedtuple
 
-import PIL.Image as Image
+from PIL import Image
 from rx import Observable
 from rx.subjects import Subject
 from rx.concurrency import EventLoopScheduler, ThreadPoolScheduler
