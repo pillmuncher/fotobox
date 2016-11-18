@@ -247,10 +247,10 @@ class Button(PushButton):
         )
         PushButton.__init__(self, command.port, bounce_time)
 
-    def pressed(self):
+    def pressed(self, port):
         self.events.on_next(ButtonPressed(time.time(), self.command))
 
-    def released(self):
+    def released(self, port):
         self.events.on_next(ButtonReleased(time.time()))
 
 
