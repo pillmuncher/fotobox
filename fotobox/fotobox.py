@@ -84,15 +84,13 @@ def handle_quit(cmd, conf):
 def handle_create_printout(cmd, conf):
     printout = create_printout(
         conf.printout.margin, conf.printout.background, *cmd.photos)
-    width, height = printout.size
-    size = int(height * 1.5), height
-    printout = Image.new('RGB', size, conf.printout.background)
-    printout.paste(printout, (0, 0))
-    printout.paste(conf.printout.logo.image, (width, 0))
+    image = Image.new('RGB', printout.size, conf.printout.background)
+    image.paste(printout, (0, 0))
+    image.paste(conf.printout.logo.image, (printout.size[0], 0))
     thread_thru(
         time.strftime(conf.printout.time_mask, cmd.time),
         conf.printout.file_mask.format,
-        printout.save,
+        image.save,
     )
 
 
