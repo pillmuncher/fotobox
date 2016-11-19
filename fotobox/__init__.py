@@ -26,7 +26,7 @@ class Config(object):
 
 def config(file_name):
 
-    def photo_length(total, padding, margin_a, margin_b):
+    def side_length(total, padding, margin_a, margin_b):
         return (total - (margin_a + padding + margin_b)) // 2
 
     def get_box(n, pad_width, pad_height):
