@@ -61,8 +61,6 @@
   "montage": {
     "interval": 7,
     "file_mask": "/media/usb/montage/{}.jpg",
-    "width": 1280,
-    "height":1024,
     "background": [200, 200, 200],
     "margin": {
       "left": 0,
@@ -78,16 +76,13 @@
   "printout": {
     "file_mask": "/var/fotos/printouts/{}.jpg",
     "time_mask": "Ausdruck am %Y-%m-%d um %H-%M-%S Uhr",
-    "background": [255, 255, 255],
+    "image_file": "printout/logo.png",
     "margin": {
       "left": 50,
       "right": 50,
       "top": 50,
       "bottom": 50,
       "padding": 50
-    },
-    "logo": {
-      "image_file": "printout/logo.png"
     }
   }
 }

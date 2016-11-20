@@ -26,7 +26,6 @@ from .util import const, thread_thru, inject
 Log = namedtuple('Log', 'text')
 Shoot = namedtuple('Shoot', 'event')
 Quit = namedtuple('Quit', 'event')
-CreatePrintout = namedtuple('CreatePrintout', 'photos time')
 ShowRandomMontage = namedtuple('ShowRandomMontage', '')
 Blink = namedtuple('Blink', '')
 
@@ -51,27 +50,24 @@ def handle_log(cmd, conf):
 
 @handle_command.register(Shoot)
 def handle_shoot(cmd, conf):
+    def paste_to(target, source, layout, n):
+        return target.paste(
+            source.resize(layout.size, Image.ANTIALIAS), layout.box[n])
     with conf.shooting_lock, flash(conf.photo.lights), conf.camera.preview():
         timestamp = time.strftime(conf.photo.time_mask)
         file_names = conf.camera.shoot(conf.photo.file_mask.format(timestamp))
         montage = conf.montage.image.copy()
-        photos = []
+        printout = conf.printout.image.copy()
         for i in conf.photo.range:
             count_down(i + 1, conf)
             photo = Image.open(next(file_names))
-            photos.append(photo)
-            montage.paste(
-                photo
-                .copy()
-                .convert('RGBA')
-                .resize(conf.montage.photo.size, Image.ANTIALIAS),
-                conf.montage.photo.box[i],
-            )
+            montage = paste_to(montage, photo.convert('RGBA'), conf.montage, i)
+            printout = paste_to(printout, photo, conf.printout, i)
             time.sleep(5)
-        montage = Image.blend(montage, conf.montage.watermark.image, .25)
-        montage.save(conf.montage.file_mask.format(timestamp))
-        show_image(montage, conf.display, conf.screen.offset, flip=True)
-        conf.bus.on_next(CreatePrintout(photos, timestamp))
+        file_name = conf.montage.file_mask.format(timestamp)
+        Image.blend(montage, conf.montage.watermark.image, .25).save(file_name)
+        show_montage(file_name, conf)
+        printout.save(conf.printout.file_mask.format(timestamp))
         time.sleep(conf.montage.interval)
 
 
@@ -80,32 +76,15 @@ def handle_quit(cmd, conf):
     conf.exit_code.put(cmd.event.code)
 
 
-@handle_command.register(CreatePrintout)
-def handle_create_printout(cmd, conf):
-    printout = create_printout(
-        conf.printout.margin, conf.printout.background, *cmd.photos)
-    image = Image.new('RGB', printout.size, conf.printout.background)
-    image.paste(printout, (0, 0))
-    image.paste(conf.printout.logo.image, (printout.size[0], 0))
-    thread_thru(
-        time.strftime(conf.printout.time_mask, cmd.time),
-        conf.printout.file_mask.format,
-        image.save,
-    )
-
-
 @handle_command.register(ShowRandomMontage)
-def handle_show_random_montage(cmd, conf):
+def handle_show_montage(cmd, conf):
     if conf.shooting_lock.acquire(blocking=False):
         try:
             thread_thru(
-                '*',
-                conf.montage.file_mask.format,
+                conf.montage.glob_mask,
                 glob.glob,
                 random.choice,
-                load_image,
-                lambda img: img.resize(conf.screen.size, Image.ANTIALIAS),
-                lambda img: show_image(img, conf.display, conf.screen.offset),
+                inject(show_montage, conf),
             )
         finally:
             conf.shooting_lock.release()
@@ -139,6 +118,15 @@ def lightshow(seconds, conf):
     switch_off(conf.led.green)
     switch_off(conf.led.yellow)
     switch_off(conf.led.red)
+
+
+def show_montage(file_name, conf):
+    thread_thru(
+        file_name,
+        load_image,
+        inject(Image.Image.resize, conf.screen.size, Image.ANTIALIAS),
+        inject(show_image, conf.display, conf.screen.offset),
+    )
 
 
 def show_overlay(file_name, position, seconds, conf):
@@ -180,37 +168,6 @@ def count_down(number, conf):
             random.choice,
             play_sound,
         )
-
-
-def create_printout(margin, background, img11, img12, img21, img22):
-    assert img11.size == img21.size == img21.size == img22.size
-    img_width, img_height = img11.size
-    width = img_width * 2 + margin.padding + margin.left + margin.right
-    height = img_height * 2 + margin.padding + margin.top + margin.bottom
-    horizontal, vertical = width * 3, height * 4
-    if horizontal < vertical:
-        original_width = width
-        width *= vertical
-        width /= horizontal
-        left1 = margin.left + (width - original_width) / 2
-        top1 = margin.top
-    elif horizontal > vertical:
-        original_height = height
-        height *= horizontal
-        height /= vertical
-        left1 = margin.left
-        top1 = margin.top + (height - original_height) / 2
-    else:
-        left1 = margin.left
-        top1 = margin.top
-    left2 = left1 + img_width + margin.padding
-    top2 = top1 + img_height + margin.padding
-    printout = Image.new('RGB', (int(width), int(height)), background)
-    printout.paste(img11, (int(left1), int(top1)))
-    printout.paste(img12, (int(left2), int(top1)))
-    printout.paste(img21, (int(left1), int(top2)))
-    printout.paste(img22, (int(left2), int(top2)))
-    return printout
 
 
 def detect_push(prev, curr):

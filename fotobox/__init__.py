@@ -29,12 +29,14 @@ def config(file_name):
     def side_length(total, padding, margin_a, margin_b):
         return (total - (margin_a + padding + margin_b)) // 2
 
-    def get_box(n, pad_width, pad_height):
+    def get_box(n, pad_width, pad_height, target):
         col, row = divmod(n, 2)
-        left = c.montage.margin.left + pad_width * col
-        right = left + c.montage.photo.width
-        upper = c.montage.margin.top + pad_height * row
-        lower = upper + c.montage.photo.height
+        pad_width = target.photo.width + target.margin.padding
+        pad_height = target.photo.height + target.margin.padding
+        left = target.margin.left + pad_width * col
+        right = left + target.photo.width
+        upper = target.margin.top + pad_height * row
+        lower = upper + target.photo.height
         return left, upper, right, lower
 
     with open(file_name, 'r') as config_file:
@@ -71,11 +73,11 @@ def config(file_name):
         c.montage.margin.top,
         c.montage.margin.bottom,
     )
-    c.montage.photo.size = c.montage.photo.width, c.montage.photo.height
-    pad_width = c.montage.photo.width + c.montage.padding
-    pad_height = c.montage.photo.height + c.montage.padding
-    c.montage.photo.box = [
-        get_box(i, pad_width, pad_height) for i in c.photo.range
+    pad_width = c.montage.layout.width + c.montage.margin.padding
+    pad_height = c.montage.layout.height + c.montage.margin.padding
+    c.montage.layout.size = c.montage.layout.width, c.montage.layout.height
+    c.montage.layout.box = [
+        get_box(i, pad_width, pad_height, c.montage) for i in c.photo.range
     ]
     c.montage.image = Image.new('RGBA', c.screen.size, c.montage.background)
     c.montage.watermark.image = (
@@ -83,14 +85,18 @@ def config(file_name):
         .open(c.montage.watermark.image_file)
         .resize(c.screen.size, Image.ANTIALIAS)
     )
-    c.printout.logo.image_file = resource_path(
-        c.printout.logo.image_file,
-    )
-    c.printout.logo.image = Image.open(c.printout.logo.image_file)
+    c.montage.glob_mask = c.montage.file_mask.format('*')
+    c.printout.image = Image.open(c.printout.image_file)
+    c.printout.layout = Config({})
+    c.printout.layout.width, c.printout.layout.height = c.printout.image.size
+    pad_width = c.printout.layout.width + c.printout.margin.padding
+    pad_height = c.printout.layout.height + c.printout.margin.padding
+    c.printout.layout.box = [
+        get_box(i, pad_width, pad_height, c.printout) for i in c.photo.range
+    ]
     c.shooting_lock = threading.Lock()
     c.exit_code = queue.Queue(maxsize=1)
     return c
-
 
 if __name__ == '__main__':
     import sys
