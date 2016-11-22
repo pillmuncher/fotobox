@@ -11,7 +11,7 @@
         [rx [Observable]]
         [rx.subjects [Subject]]
         [rx.concurrency [EventLoopScheduler ThreadPoolScheduler]]
-        [config]
+        config
         [camera [context :as camera_context]]
         [display [show_image load_image play_sound]]
         [display [context :as display_context]]
@@ -49,16 +49,13 @@
 
 
 (defn show_overlay [file_name position seconds conf]
-  (let [img (->> file_name (os.path.join conf.resource_path) Image.open)
+  (setv img (->> file_name (os.path.join conf.resource_path) Image.open)
         width (-> img.size (get 0) (+ 31) (// 32) (* 32))
         height (-> img.size (get 1) (+ 15) (// 16) (* 16))
-        pad (Image.new "RGB" (, width height))]
-    (pad.paste img position)
-    (with [(conf.camera.overlay (pad.tostring)
-                                :size img.size
-                                :alpha 64
-                                :layer 3)]
-      (time.sleep seconds))))
+        pad (Image.new "RGB" (, width height)))
+  (pad.paste img position)
+  (with [(conf.camera.overlay (pad.tostring) :size img.size :alpha 64 :layer 3)]
+    (time.sleep seconds)))
 
 
 (defn count_down [number conf]
@@ -69,18 +66,18 @@
     conf)
   (for [i [3 2 1]]
     (-> i (conf.photo.countdown.count.sound_mask.format) (play_sound))
-      (show_overlay
-        (conf.photo.countdown.count.image_mask.format i)
-        conf.photo.countdown.count.image_position
-        1
-        conf))
+    (show_overlay
+      (conf.photo.countdown.count.image_mask.format i)
+      conf.photo.countdown.count.image_position
+      1
+      conf))
   (show_overlay
     conf.photo.countdown.smile.image_file
     conf.photo.countdown.smile.image_position
     1.5
     conf)
   (if conf.photo.countdown.songs.enabled
-      (-> (conf.photo.countdown.songs.glob_mask)
+      (-> conf.photo.countdown.songs.glob_mask
           (glob.glob)
           (random.choice)
           (play_sound))))
@@ -140,25 +137,25 @@
     (with [conf.shooting_lock]
       (with [(flash conf.photo.lights)]
         (with [(conf.camera.preview)]
-          (let [timestamp (time.strftime conf.photo.time_mask)
+          (setv timestamp (time.strftime conf.photo.time_mask)
                 file_names (-> timestamp
                                (conf.photo.file_mask.format)
                                (conf.camera.shoot))
                 montage (conf.montage.image.copy)
-                printout (conf.printout.image.copy)]
-            (for [i conf.photo.range]
-              (count_down (inc i) conf)
-              (let [photo (Image.open (next file_names))]
-                (paste-to montage (photo.convert "RGBA") i conf.montage.layout)
-                (paste-to printout photo i conf.printout.layout)
-              (time.sleep 5)))
-            (let [file_name (conf.montage.file_mask.format timestamp)]
-              (-> Image
-                  (.blend montage conf.montage.watermark.image 0.25)
-                  (.save file_name))
-              (show_montage file_name conf))
-            (-> timestamp (conf.printout.file_mask.format) (printout.save))
-            (time.sleep conf.montage.interval)))))))
+                printout (conf.printout.image.copy))
+          (for [i conf.photo.range]
+            (count_down (inc i) conf)
+            (setv photo (Image.open (next file_names)))
+            (paste-to montage (photo.convert "RGBA") i conf.montage.layout)
+            (paste-to printout photo i conf.printout.layout)
+            (time.sleep 5))
+          (setv file_name (conf.montage.file_mask.format timestamp))
+          (-> Image
+              (.blend montage conf.montage.watermark.image 0.25)
+              (.save file_name))
+          (show_montage file_name conf)))
+      (-> timestamp (conf.printout.file_mask.format) (printout.save))
+      (time.sleep conf.montage.interval))))
 
 
 (with-decorator (handle_command.register Quit)
@@ -190,16 +187,14 @@
 (defclass Button [object]
   (defn --init-- [self command bounce_time scheduler]
     (PushButton.__init__ self command.event.port bounce_time)
-    (let [self.command command
+    (setv self.command command
           self.log (Log command.event.info)
           self.events (Subject)
-          self.pushes (-> self
-                          (. events)
+          self.pushes (-> self.events
                           (.observe_on scheduler)
                           (.scan detect_push)
                           (.where is_pushed)
-                          (.distinct_until_changed))]
-      nil))
+                          (.distinct_until_changed))))
   (defn pressed [self]
     (-> (time.time) (ButtonPressed self.command) (self.events.on_next)))
   (defn released [self]
@@ -208,7 +203,7 @@
 
 (with-decorator contextlib.contextmanager
   (defn bus_context [conf]
-    (let [event_loop (EventLoopScheduler)
+    (setv event_loop (EventLoopScheduler)
           buttons [
             (-> conf.event.shoot (Shoot) (Button conf.bounce_time event_loop))
             (-> conf.event.quit (Quit) (Button conf.bounce_time event_loop))
@@ -227,16 +222,16 @@
                           bus
                           (-> (Blink) const blinker_ticks.map)
                           (-> (ShowRandomMontage) const montage_ticks.map))
-                      (.subscribe :on_next (fn [c] (handle_command c conf))))]
-      (try
-        (yield bus)
-        (finally
-          (handler.dispose)
-          (montage_ticks.dispose)
-          (blinker_ticks.dispose)
-          (bus.dispose)
-          (for [button buttons]
-            (button.events.dispose)))))))
+                      (.subscribe :on_next (fn [c] (handle_command c conf)))))
+    (try
+      (yield bus)
+      (finally
+        (handler.dispose)
+        (montage_ticks.dispose)
+        (blinker_ticks.dispose)
+        (bus.dispose)
+        (for [button buttons]
+          (button.events.dispose))))))
 
 
 (defn run [conf]
@@ -259,10 +254,10 @@
 (defmain [&rest args]
   (import argparse
           [.config [config]])
-  (let [parser (argparse.ArgumentParser :description "FotoBox Programm.")]
-    (parser.add_argument
-        "--config"
-        :default "fotobox.json"
-        :type str
-        :help "path to config file")
-    (-> (parser.parse_args) (. config) (config) (run))))
+  (setv parser (argparse.ArgumentParser :description "FotoBox Programm."))
+  (parser.add_argument
+      "--config"
+      :default "fotobox.json"
+      :type str
+      :help "path to config file")
+  (-> (parser.parse_args) (. config) (config) (run)))
