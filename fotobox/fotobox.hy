@@ -212,27 +212,26 @@
             (-> (Button Quit conf.event.quit conf.bounce_time event_loop))
             (-> (Button Quit conf.event.reboot conf.bounce_time event_loop))
             (-> (Button Quit conf.event.shutdown conf.bounce_time event_loop))]
-          bus (Subject)
           blinker_ticks (Observable.interval conf.blink.interval)
           montage_ticks (Observable.interval conf.montage.interval)
+          bus (Subject)
           handler (-> Observable
                       (.merge (list-comp button.pushes [button buttons]))
                       (.scan non_overlapping :seed (ButtonPushed None 0 0))
                       (.distinct_until_changed)
                       (.map to_command)
-                      (.merge
-                          (ThreadPoolScheduler :max_workers conf.workers)
-                          bus
-                          (-> (Blink) const blinker_ticks.map)
-                          (-> (ShowRandomMontage) const montage_ticks.map))
+                      (.merge (ThreadPoolScheduler :max_workers conf.workers)
+                              (-> (Blink) const blinker_ticks.map)
+                              (-> (ShowRandomMontage) const montage_ticks.map)
+                              bus)
                       (.subscribe :on_next (fn [c] (handle_command c conf)))))
     (try
       (yield bus)
       (finally
         (handler.dispose)
+        (bus.dispose)
         (montage_ticks.dispose)
         (blinker_ticks.dispose)
-        (bus.dispose)
         (for [button buttons]
           (button.events.dispose))))))
 
