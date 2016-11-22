@@ -48,7 +48,7 @@
 
 
 (defn show_overlay [file_name position seconds conf]
-  (setv img (->> file_name (os.path.join conf.resource_path) Image.open)
+  (setv img (->> file_name (os.path.join conf.resource_path) (Image.open))
         width (-> img.size (get 0) (+ 31) (// 32) (* 32))
         height (-> img.size (get 1) (+ 15) (// 16) (* 16))
         pad (Image.new "RGB" (, width height)))
