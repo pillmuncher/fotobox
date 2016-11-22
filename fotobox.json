@@ -9,19 +9,23 @@
   },
   "event": {
     "shoot":{
-      "port": 16
+      "port": 16,
+      "info": ""
     },
     "quit": {
       "port": 35,
-      "code": 0
+      "code": 0,
+      "info": "Press longer to quit!"
     },
     "reboot": {
       "port": 32,
-      "code": 65
+      "code": 65,
+      "info": "Press longer to reboot!"
     },
     "shutdown": {
       "port": 36,
-      "code": 64
+      "code": 64,
+      "info": "Press longer to shutdown!"
     }
   },
   "blink": {

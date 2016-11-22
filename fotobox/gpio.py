@@ -5,21 +5,23 @@ import contextlib
 
 import RPi.GPIO as GPIO
 
-from .util import inject
+from util import inject
+
+
+GPIO.BOTH = 0
 
 
 class PushButton:
 
     def __init__(self, port, bounce_time):
+        def handle(port):
+            if GPIO.input(port):
+                self.pressed()
+            else:
+                self.released()
         GPIO.setup(port, GPIO.IN)
         GPIO.add_event_detect(
-            port, GPIO.BOTH, bouncetime=bounce_time, callback=self._handle)
-
-    def _handle(self, port):
-        if GPIO.input(port):
-            self.pressed()
-        else:
-            self.released()
+            port, GPIO.BOTH, bouncetime=bounce_time, callback=handle)
 
     def pressed(self):
         pass

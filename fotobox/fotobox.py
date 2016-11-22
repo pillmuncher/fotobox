@@ -50,9 +50,6 @@ def handle_log(cmd, conf):
 
 @handle_command.register(Shoot)
 def handle_shoot(cmd, conf):
-    def paste_to(target, source, layout, n):
-        return target.paste(
-            source.resize(layout.size, Image.ANTIALIAS), layout.box[n])
     with conf.shooting_lock, flash(conf.photo.lights), conf.camera.preview():
         timestamp = time.strftime(conf.photo.time_mask)
         file_names = conf.camera.shoot(conf.photo.file_mask.format(timestamp))
@@ -61,8 +58,14 @@ def handle_shoot(cmd, conf):
         for i in conf.photo.range:
             count_down(i + 1, conf)
             photo = Image.open(next(file_names))
-            montage = paste_to(montage, photo.convert('RGBA'), conf.montage, i)
-            printout = paste_to(printout, photo, conf.printout, i)
+            montage.paste(
+                photo
+                .convert('RGBA')
+                .resize(conf.montage.layout.size, Image.ANTIALIAS),
+                conf.montage.layout.box[i])
+            printout.paste(
+                photo.resize(conf.printout.layout.size, Image.ANTIALIAS),
+                conf.printout.layout.box[i])
             time.sleep(5)
         file_name = conf.montage.file_mask.format(timestamp)
         Image.blend(montage, conf.montage.watermark.image, .25).save(file_name)
