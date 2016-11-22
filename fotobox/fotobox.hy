@@ -196,7 +196,7 @@
                           (.where is_pushed)
                           (.distinct_until_changed))))
   (defn pressed [self]
-    (-> (time.time) (ButtonPressed self.command) (self.events.on_next)))
+    (-> (time.time) (ButtonPressed self) (self.events.on_next)))
   (defn released [self]
     (-> (time.time) (ButtonReleased) (self.events.on_next))))
 

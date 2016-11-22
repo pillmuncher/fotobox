@@ -10,20 +10,25 @@
   "event": {
     "shoot":{
       "port": 16,
+      "hold": 0,
+      "code": null,
       "info": ""
     },
     "quit": {
       "port": 35,
+      "hold": 5,
       "code": 0,
       "info": "Press longer to quit!"
     },
     "reboot": {
       "port": 32,
+      "hold": 6,
       "code": 65,
       "info": "Press longer to reboot!"
     },
     "shutdown": {
       "port": 36,
+      "hold": 7,
       "code": 64,
       "info": "Press longer to shutdown!"
     }
