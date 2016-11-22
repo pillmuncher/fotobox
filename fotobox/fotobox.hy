@@ -147,7 +147,7 @@
                 printout (conf.printout.image.copy))
           (for [i conf.photo.range]
             (count_down (inc i) conf)
-            (setv photo (-> file_names next Image.open))
+            (setv photo (-> file_names (next) (Image.open)))
             (paste-to montage (photo.convert "RGBA") i conf.montage.layout)
             (paste-to printout photo i conf.printout.layout)
             (time.sleep 5))
