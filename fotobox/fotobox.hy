@@ -83,24 +83,26 @@
           (play_sound))))
 
 
-(defn detect_push [prev curr]
-  (assert (<= prev.time curr.time))
-  (if (and (is_pressed prev) (is_released curr))
-      (ButtonPushed prev.command prev.log prev.time curr.time)
-      curr))
+(defn detect_push [previous current]
+  (assert (<= previous.time current.time))
+  (if (and (is_pressed previous) (is_released current))
+      (ButtonPushed :button previous.button
+                    :pressed previous.time
+                    :released current.time)
+      current))
 
 
-(defn non_overlapping [prev curr]
-  (assert (<= prev.pressed curr.pressed))
-  (if (<= prev.released curr.pressed)
-      curr
-      prev))
+(defn non_overlapping [previous current]
+  (assert (<= previous.pressed current.pressed))
+  (if (<= previous.released current.pressed)
+      current
+      previous))
 
 
 (defn to_command [pushed]
-  (if (>= pushed.command.hold (- pushed.released pushed.pressed))
-      pushed.command
-      pushed.log))
+  (if (>= pushed.button.hold (- pushed.released pushed.pressed))
+      pushed.button.command
+      pushed.button.log))
 
 
 (defn paste-to [image photo i layout]
@@ -110,13 +112,13 @@
 
 
 (setv Log (namedtuple "Log" "info")
-      Shoot (namedtuple "Shoot" "hold code")
-      Quit (namedtuple "Quit" "hold code")
+      Shoot (namedtuple "Shoot" "code")
+      Quit (namedtuple "Quit" "code")
       ShowRandomMontage (namedtuple "ShowRandomMontage" "")
       Blink (namedtuple "Blink" "")
-      ButtonPressed (namedtuple "ButtonPressed" "time command")
-      ButtonReleased (namedtuple "ButtonReleased" "time")
-      ButtonPushed (namedtuple "ButtonPushed" "command log pressed released")
+      ButtonPressed (namedtuple "ButtonPressed" "time button")
+      ButtonReleased (namedtuple "ButtonReleased" "time button")
+      ButtonPushed (namedtuple "ButtonPushed" "button pressed released")
       is_pressed (functools.partial instance? ButtonPressed)
       is_released (functools.partial instance? ButtonReleased)
       is_pushed (functools.partial instance? ButtonPushed))
@@ -187,7 +189,8 @@
 (defclass Button [object]
   (defn --init-- [self command event bounce-time scheduler]
     (PushButton.--init-- self event.port bounce-time)
-    (setv self.command (command :hold event.hold :code event.code)
+    (setv self.hold event.hold
+          self.command (command :code event.code)
           self.log (Log :info event.info)
           self.events (Subject)
           self.pushes (-> self.events
@@ -198,7 +201,7 @@
   (defn pressed [self]
     (-> (time.time) (ButtonPressed self) (self.events.on_next)))
   (defn released [self]
-    (-> (time.time) (ButtonReleased) (self.events.on_next))))
+    (-> (time.time) (ButtonReleased self) (self.events.on_next))))
 
 
 (with-decorator contextlib.contextmanager
@@ -214,7 +217,7 @@
           montage_ticks (Observable.interval conf.montage.interval)
           handler (-> Observable
                       (.merge (list-comp button.pushes [button buttons]))
-                      (.scan non_overlapping :seed (ButtonPushed None None 0 0))
+                      (.scan non_overlapping :seed (ButtonPushed None 0 0))
                       (.distinct_until_changed)
                       (.map to_command)
                       (.merge
