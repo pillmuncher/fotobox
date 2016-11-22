@@ -207,11 +207,10 @@
 (with-decorator contextlib.contextmanager
   (defn bus_context [conf]
     (setv event_loop (EventLoopScheduler)
-          buttons [
-            (Button Shoot conf.event.shoot conf.bounce_time event_loop)
-            (Button Quit conf.event.quit conf.bounce_time event_loop)
-            (Button Quit conf.event.reboot conf.bounce_time event_loop)
-            (Button Quit conf.event.shutdown conf.bounce_time event_loop)]
+          buttons [(Button Shoot conf.event.shoot conf.bounce_time event_loop)
+                   (Button Quit conf.event.quit conf.bounce_time event_loop)
+                   (Button Quit conf.event.reboot conf.bounce_time event_loop)
+                   (Button Quit conf.event.shutdown conf.bounce_time event_loop)]
           blinker_ticks (Observable.interval conf.blink.interval)
           montage_ticks (Observable.interval conf.montage.interval)
           bus (Subject)
