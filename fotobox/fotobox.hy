@@ -1,17 +1,17 @@
 #!/usr/bin/env hy
 
-(import contextlib
-        functools
-        glob
-        os.path
-        random
-        time
+(import [contextlib]
+        [functools]
+        [glob]
+        [os.path]
+        [random]
+        [time]
         [collections [namedtuple]]
         [PIL [Image]]
         [rx [Observable]]
         [rx.subjects [Subject]]
         [rx.concurrency [EventLoopScheduler ThreadPoolScheduler]]
-        config
+        [config]
         [camera [context :as camera_context]]
         [display [show_image load_image play_sound]]
         [display [context :as display_context]]
@@ -98,7 +98,7 @@
 
 
 (defn to_command [pushed]
-  (if (>= pushed.command.event.hold (- pushed.released pushed.pressed))
+  (if (>= pushed.command.hold (- pushed.released pushed.pressed))
       pushed.command
       pushed.log))
 
@@ -109,9 +109,9 @@
     (get layout.box i)))
 
 
-(setv Log (namedtuple "Log" "text")
-      Shoot (namedtuple "Shoot" "event")
-      Quit (namedtuple "Quit" "event")
+(setv Log (namedtuple "Log" "info")
+      Shoot (namedtuple "Shoot" "hold code")
+      Quit (namedtuple "Quit" "hold code")
       ShowRandomMontage (namedtuple "ShowRandomMontage" "")
       Blink (namedtuple "Blink" "")
       ButtonPressed (namedtuple "ButtonPressed" "time command")
@@ -129,7 +129,7 @@
 
 (with-decorator (handle_command.register Log)
   (defn handle_log [cmd conf]
-    (print cmd.text)))
+    (print cmd.info)))
 
 
 (with-decorator (handle_command.register Shoot)
@@ -160,7 +160,7 @@
 
 (with-decorator (handle_command.register Quit)
   (defn handle_quit [cmd conf]
-    (conf.exit_code.put cmd.event.code)))
+    (conf.exit_code.put cmd.code)))
 
 
 (with-decorator (handle_command.register ShowRandomMontage)
@@ -185,10 +185,10 @@
 
 
 (defclass Button [object]
-  (defn --init-- [self command bounce_time scheduler]
-    (PushButton.__init__ self command.event.port bounce_time)
-    (setv self.command command
-          self.log (Log command.event.info)
+  (defn --init-- [self command event bounce-time scheduler]
+    (PushButton.--init-- self event.port bounce-time)
+    (setv self.command (command :hold event.hold :code event.code)
+          self.log (Log :info event.info)
           self.events (Subject)
           self.pushes (-> self.events
                           (.observe_on scheduler)
@@ -205,10 +205,10 @@
   (defn bus_context [conf]
     (setv event_loop (EventLoopScheduler)
           buttons [
-            (-> conf.event.shoot (Shoot) (Button conf.bounce_time event_loop))
-            (-> conf.event.quit (Quit) (Button conf.bounce_time event_loop))
-            (-> conf.event.reboot (Quit) (Button conf.bounce_time event_loop))
-            (-> conf.event.shutdown (Quit) (Button conf.bounce_time event_loop))]
+            (-> (Button Shoot conf.event.shoot conf.bounce_time event_loop))
+            (-> (Button Quit conf.event.quit conf.bounce_time event_loop))
+            (-> (Button Quit conf.event.reboot conf.bounce_time event_loop))
+            (-> (Button Quit conf.event.shutdown conf.bounce_time event_loop))]
           bus (Subject)
           blinker_ticks (Observable.interval conf.blink.interval)
           montage_ticks (Observable.interval conf.montage.interval)
