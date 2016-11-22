@@ -11,13 +11,12 @@
         [rx [Observable]]
         [rx.subjects [Subject]]
         [rx.concurrency [EventLoopScheduler ThreadPoolScheduler]]
-        [config]
-        [camera [context :as camera_context]]
-        [display [show_image load_image play_sound]]
-        [display [context :as display_context]]
-        [gpio [PushButton setup_out switch_on switch_off flash]]
-        [gpio [context :as gpio_context]]
-        [util [const]])
+        [.camera [context :as camera_context]]
+        [.display [show_image load_image play_sound]]
+        [.display [context :as display_context]]
+        [.gpio [PushButton setup_out switch_on switch_off flash]]
+        [.gpio [context :as gpio_context]]
+        [.util [const]])
 
 
 (defn blink_once [led conf]
@@ -253,7 +252,7 @@
 
 
 (defmain [&rest args]
-  (import argparse
+  (import [argparse]
           [.config [config]])
   (setv parser (argparse.ArgumentParser :description "FotoBox Programm."))
   (parser.add_argument
