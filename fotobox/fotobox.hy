@@ -60,13 +60,13 @@
 
 (defn count_down [number conf]
   (-> (conf.photo.countdown.prepare.image_mask.format number)
-      (show_overlay conf.photo.countdown.prepare.image_position 2 conf)
+      (show_overlay conf.photo.countdown.prepare.image_position 2 conf))
   (for [i [3 2 1]]
     (-> (conf.photo.countdown.count.sound_mask.format i) (play_sound))
     (-> (conf.photo.countdown.count.image_mask.format i)
-        (show_overlay conf.photo.countdown.count.image_position 1 conf))
+        (show_overlay conf.photo.countdown.count.image_position 1 conf)))
   (-> conf.photo.countdown.smile.image_file
-      (show_overlay conf.photo.countdown.smile.image_position 1.5 conf)
+      (show_overlay conf.photo.countdown.smile.image_position 1.5 conf))
   (if conf.photo.countdown.songs.enabled
       (-> conf.photo.countdown.songs.glob_mask
           (glob.glob) (random.choice) (play_sound))))
