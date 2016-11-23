@@ -53,8 +53,7 @@
         height (-> img.size (get 1) (+ 15) (// 16) (* 16))
         pad (Image.new "RGB" (, width height)))
   (pad.paste img position)
-  (with [(-> (pad.tostring)
-             (conf.camera.overlay :size img.size :alpha 64 :layer 3))]
+  (with [(conf.camera.overlay (pad.tostring) :size img.size :alpha 64 :layer 3)]
     (time.sleep seconds)))
 
 
@@ -175,7 +174,7 @@
 
 (defclass Button []
   (defn --init-- [self command event bounce-time scheduler]
-    (-> (super) (.--init-- event.port bounce-time))
+    (.--init-- (super) event.port bounce-time)
     (setv self.hold event.hold
           self.command (command :code event.code)
           self.log (Log :info event.info)
