@@ -37,4 +37,3 @@ class Camera:
 def context(size):
     with picamera.PiCamera() as cam:
         yield Camera(cam, size)
-    yield
