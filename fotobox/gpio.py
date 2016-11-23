@@ -5,7 +5,7 @@ import contextlib
 
 import RPi.GPIO as GPIO
 
-from util import inject
+from .util import inject
 
 
 GPIO.BOTH = 0
