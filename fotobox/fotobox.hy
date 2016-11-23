@@ -185,9 +185,9 @@
         (blink_once conf.led.red conf))))
 
 
-(defclass Button [object]
+(defclass Button []
   (defn --init-- [self command event bounce-time scheduler]
-    (PushButton.--init-- self event.port bounce-time)
+    (-> (super) (.--init-- event.port bounce-time))
     (setv self.hold event.hold
           self.command (command :code event.code)
           self.log (Log :info event.info)
