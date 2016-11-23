@@ -77,23 +77,21 @@ def config(file_name):
     c.montage.layout.box = [
         get_box(i, pad_width, pad_height, c.montage) for i in c.photo.range
     ]
-    # c.montage.image = Image.new('RGBA', c.screen.size, c.montage.background)
-    # c.montage.watermark.image = (
-        # Image
-        # .open(c.montage.watermark.image_file)
-        # .resize(c.screen.size, Image.ANTIALIAS)
-    # )
-    # c.montage.glob_mask = c.montage.file_mask.format('*')
-    # c.printout.image = Image.open(c.printout.image_file)
-    # c.printout.layout = Config({})
-    # c.printout.layout.width, c.printout.layout.height = c.printout.image.size
-    # pad_width = c.printout.layout.width + c.printout.margin.padding
-    # pad_height = c.printout.layout.height + c.printout.margin.padding
-    # c.printout.layout.box = [
-        # get_box(i, pad_width, pad_height, c.printout) for i in c.photo.range
-    # ]
+    c.montage.image = Image.new('RGBA', c.screen.size, c.montage.background)
+    c.montage.watermark.image = (
+        Image
+        .open(c.montage.watermark.image_file)
+        .resize(c.screen.size, Image.ANTIALIAS)
+    )
+    c.montage.glob_mask = c.montage.file_mask.format('*')
+    c.printout.image = Image.open(c.printout.image_file)
+    c.printout.layout = Config({})
+    c.printout.layout.width, c.printout.layout.height = c.printout.image.size
+    pad_width = c.printout.layout.width + c.printout.margin.padding
+    pad_height = c.printout.layout.height + c.printout.margin.padding
+    c.printout.layout.box = [
+        get_box(i, pad_width, pad_height, c.printout) for i in c.photo.range
+    ]
     c.shooting_lock = threading.Lock()
     c.exit_code = queue.Queue(maxsize=1)
     return c
-
-
