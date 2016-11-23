@@ -94,9 +94,8 @@
 
 
 (defn paste-to [image photo i layout]
-  (image.paste
-    (photo.resize layout.size Image.ANTIALIAS)
-    (get layout.box i)))
+  (image.paste (photo.resize layout.size Image.ANTIALIAS)
+               (get layout.box i)))
 
 
 (setv Log (namedtuple "Log" "info")
