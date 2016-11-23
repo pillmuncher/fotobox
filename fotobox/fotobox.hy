@@ -53,34 +53,23 @@
         height (-> img.size (get 1) (+ 15) (// 16) (* 16))
         pad (Image.new "RGB" (, width height)))
   (pad.paste img position)
-  (with [(conf.camera.overlay (pad.tostring) :size img.size :alpha 64 :layer 3)]
+  (with [(-> (pad.tostring)
+             (conf.camera.overlay :size img.size :alpha 64 :layer 3))]
     (time.sleep seconds)))
 
 
 (defn count_down [number conf]
-  (show_overlay
-    (conf.photo.countdown.prepare.image_mask.format number)
-    conf.photo.countdown.prepare.image_position
-    2
-    conf)
+  (-> (conf.photo.countdown.prepare.image_mask.format number)
+      (show_overlay conf.photo.countdown.prepare.image_position 2 conf)
   (for [i [3 2 1]]
-    (-> i (conf.photo.countdown.count.sound_mask.format) (play_sound))
-    (show_overlay
-      (conf.photo.countdown.count.image_mask.format i)
-      conf.photo.countdown.count.image_position
-      1
-      conf))
-  (show_overlay
-    conf.photo.countdown.smile.image_file
-    conf.photo.countdown.smile.image_position
-    1.5
-    conf)
+    (-> (conf.photo.countdown.count.sound_mask.format i) (play_sound))
+    (-> (conf.photo.countdown.count.image_mask.format i)
+        (show_overlay conf.photo.countdown.count.image_position 1 conf))
+  (-> conf.photo.countdown.smile.image_file
+      (show_overlay conf.photo.countdown.smile.image_position 1.5 conf)
   (if conf.photo.countdown.songs.enabled
       (-> conf.photo.countdown.songs.glob_mask
-          (glob.glob)
-          (random.choice)
-          (play_sound))))
-
+          (glob.glob) (random.choice) (play_sound))))
 
 (defn detect_push [previous current]
   (assert (<= previous.time current.time))
