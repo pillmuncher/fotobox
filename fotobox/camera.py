@@ -3,7 +3,7 @@
 
 import contextlib
 
-# import picamera
+import picamera
 
 
 class Camera:
@@ -13,31 +13,28 @@ class Camera:
         self._size = size
 
     def shoot(self, file_mask):
-        # return self._camera.capture_continuous(file_mask, resize=self._size)
-        pass
+        return self._camera.capture_continuous(file_mask, resize=self._size)
 
     @contextlib.contextmanager
     def preview(self):
-        # self._camera.start_preview(hflip=True)
+        self._camera.start_preview(hflip=True)
         try:
             yield
         finally:
-            # self._camera.stop_preview()
-            pass
+            self._camera.stop_preview()
 
     @contextlib.contextmanager
     def overlay(self, image, size, alpha, layer):
-        # o = self._camera.add_overlay(
-            # image.tostring(), size=size, alpha=alpha, layer=layer)
+        o = self._camera.add_overlay(
+            image.tostring(), size=size, alpha=alpha, layer=layer)
         try:
             yield
         finally:
-            # self._camera.remove_overlay(o)
-            pass
+            self._camera.remove_overlay(o)
 
 
 @contextlib.contextmanager
 def context(size):
-    # with picamera.PiCamera() as cam:
-        # yield Camera(cam, size)
+    with picamera.PiCamera() as cam:
+        yield Camera(cam, size)
     yield
