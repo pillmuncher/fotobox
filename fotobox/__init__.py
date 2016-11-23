@@ -8,10 +8,12 @@ import os.path
 import random
 import time
 from collections import namedtuple
+
 from PIL import Image
 from rx import Observable
 from rx.subjects import Subject
 from rx.concurrency import EventLoopScheduler, ThreadPoolScheduler
+
 from .camera import context as camera_context
 from .display import show_image, load_image, play_sound
 from .display import context as display_context
@@ -234,15 +236,15 @@ def bus_context(conf):
 
 def run(conf):
     with gpio_context():
-        for light in conf.photo.lights:
-            setup_out(light)
-        setup_out(conf.led.red)
-        setup_out(conf.led.yellow)
-        setup_out(conf.led.green)
-        switch_on(conf.led.green)
         with display_context(size=conf.screen.size) as conf.display:
             with camera_context(size=conf.photo.size) as conf.camera:
                 with bus_context(conf) as conf.bus:
+                    for light in conf.photo.lights:
+                        setup_out(light)
+                    setup_out(conf.led.red)
+                    setup_out(conf.led.yellow)
+                    setup_out(conf.led.green)
+                    switch_on(conf.led.green)
                     try:
                         conf.exit_code.get()
                     finally:
