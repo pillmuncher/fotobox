@@ -12,6 +12,10 @@ def show_image(image, screen, offset, flip=False):
         pygame.display.flip()
 
 
+def resize_image(image, size):
+    return pygame.transform.scale(image, size)
+
+
 def set_caption(caption):
     pygame.display.set_caption(caption)
 

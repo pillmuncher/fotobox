@@ -15,7 +15,7 @@ from rx.subjects import Subject
 from rx.concurrency import EventLoopScheduler, ThreadPoolScheduler
 
 from .camera import context as camera_context
-from .display import show_image, load_image, play_sound
+from .display import show_image, load_image, resize_image, play_sound
 from .display import context as display_context
 from .gpio import PushButton, setup_out, switch_on, switch_off, flash
 from .gpio import context as gpio_context
@@ -123,7 +123,8 @@ def show_montage(file_name, conf):
     thread_thru(
         file_name,
         load_image,
-        inject(Image.Image.resize, conf.screen.size, Image.ANTIALIAS),
+        inject(resize_image, conf.screen.size),
+        # inject(Image.Image.resize, conf.screen.size, Image.ANTIALIAS),
         inject(show_image, conf.display, conf.screen.offset))
 
 
