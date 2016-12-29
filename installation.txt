@@ -5,4 +5,4 @@ pip install --upgrade pip
 cd <da wo das fotobox-Verzeichnis ist>/fotobox
 git pull
 python setup.py develop
-python -m fotobox
+python -m fotobox -c fotobox.json
