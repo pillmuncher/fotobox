@@ -1,6 +1,8 @@
-pip3 install mkvirtualenv
+sudo apt-get install python3
+sudo pip3 install virtualenvwrapper
 mkvirtualenv -p /usr/bin/python3 fotobox
 pip install --upgrade pip
-pip install pygame
+cd <da wo das fotobox-Verzeichnis ist>/fotobox
+git pull
 python setup.py develop
 python -m fotobox
