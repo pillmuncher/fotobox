@@ -7,7 +7,6 @@ import glob
 import os.path
 import random
 import time
-import sys
 from collections import namedtuple
 
 from PIL import Image
@@ -227,12 +226,13 @@ def bus_context(conf):
     try:
         yield bus
     finally:
-        handler.dispose()
-        bus.dispose()
-        montage_ticks.dispose()
-        blinker_ticks.dispose()
-        for button in buttons:
-            button.events.dispose()
+        pass
+        # handler.dispose()
+        # bus.dispose()
+        # montage_ticks.dispose()
+        # blinker_ticks.dispose()
+        # for button in buttons:
+            # button.events.dispose()
 
 
 def run(conf):
@@ -247,6 +247,7 @@ def run(conf):
             with camera_context(size=conf.photo.size) as conf.camera:
                 with bus_context(conf) as conf.bus:
                     print("bus:", conf.bus)
+                    time.sleep(7)
                     return
                     try:
                         conf.exit_code.get()
