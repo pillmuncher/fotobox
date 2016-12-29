@@ -44,12 +44,12 @@
     "lights": [13, 21, 19, 11],
     "countdown": {
       "prepare": {
-        "image_mask": "countdown/prepare_{}.jpg",
+        "image_mask": "countdown/photo_{}.jpg",
         "image_position": [0, 0]
       },
       "count": {
-        "sound_mask": "countdown/count_{}.mp3",
-        "image_mask": "countdown/count_{}.jpg",
+        "sound_mask": "countdown/countdown_{}.mp3",
+        "image_mask": "countdown/countdown_{}.jpg",
         "image_position": [0, 0]
       },
       "smile": {
@@ -79,13 +79,13 @@
       "padding": 3
     },
     "watermark": {
-      "image_file": "montage/watermark.png"
+      "image_file": "countdown/watermark.png"
     }
   },
   "printout": {
-    "file_mask": "/var/fotos/printouts/{}.jpg",
+    "file_mask": "/var/fotos/collagen/{}.jpg",
     "time_mask": "Ausdruck am %Y-%m-%d um %H-%M-%S Uhr",
-    "image_file": "printout/logo.png",
+    "image_file": "countdown/druck.png",
     "margin": {
       "left": 50,
       "right": 50,
