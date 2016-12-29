@@ -1,7 +1,7 @@
 sudo apt-get install python3
-sudo python -m pip install virtualenvwrapper
+sudo pip install --upgrade pip
+sudo pip install virtualenvwrapper
 mkvirtualenv --clear --python=/usr/bin/python3 fotobox
-pip install --upgrade pip
 cd <da wo das fotobox-Verzeichnis ist>/fotobox
 git pull
 python setup.py develop
