@@ -245,9 +245,9 @@ def run(conf):
         switch_on(conf.led.green)
         with display_context(size=conf.screen.size) as conf.display:
             with camera_context(size=conf.photo.size) as conf.camera:
-                print("camera:", conf.camera)
-                return
                 with bus_context(conf) as conf.bus:
+                    print("bus:", conf.bus)
+                    return
                     try:
                         conf.exit_code.get()
                     finally:
