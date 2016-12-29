@@ -8,9 +8,6 @@ import RPi.GPIO as GPIO
 from .util import inject
 
 
-GPIO.BOTH = 0
-
-
 class PushButton:
 
     def __init__(self, port, bounce_time):
