@@ -5,7 +5,7 @@ mkvirtualenv --clear --python=/usr/bin/python3 fotobox
 cd <da wo das fotobox-Verzeichnis ist>/fotobox
 git pull
 python setup.py develop
-python -m fotobox -c fotobox.json
+python -m fotobox fotobox.json
 
 
 

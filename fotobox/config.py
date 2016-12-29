@@ -56,6 +56,12 @@ def config(file_name):
     c.photo.countdown.smile.image_file = resource_path(
         c.photo.countdown.smile.image_file,
     )
+    c.montage.watermark.image_file = resource_path(
+        c.montage.watermark.image_file,
+    )
+    c.printout.image_file = resource_path(
+        c.printout.image_file,
+    )
     c.screen.size = c.screen.width, c.screen.height
     c.screen.rect = 0, 0, c.screen.width, c.screen.height
     c.montage.layout = Config({})
