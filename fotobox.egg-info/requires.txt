@@ -1,0 +1,5 @@
+picamera>=1.12
+Pillow>=3.4.2
+pygame>=1.9.2b8
+fakeRPiGPIO>=0.3a0
+Rx>=1.5.3

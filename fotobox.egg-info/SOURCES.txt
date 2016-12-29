@@ -1,0 +1,12 @@
+setup.py
+fotobox/__init__.py
+fotobox/camera.py
+fotobox/config.py
+fotobox/display.py
+fotobox/gpio.py
+fotobox/util.py
+fotobox.egg-info/PKG-INFO
+fotobox.egg-info/SOURCES.txt
+fotobox.egg-info/dependency_links.txt
+fotobox.egg-info/requires.txt
+fotobox.egg-info/top_level.txt

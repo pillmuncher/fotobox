@@ -5,7 +5,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="fotobox",
-    version="0.2a",
+    version="0.2a0",
     packages=find_packages(),
     install_requires=[
         'picamera>=1.12',
