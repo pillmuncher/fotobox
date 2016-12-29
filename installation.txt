@@ -1,8 +1,12 @@
 sudo apt-get install python3
 sudo python3 -m pip install virtualenvwrapper
-mkvirtualenv -p /usr/bin/python3 fotobox
+mkvirtualenv --clear -p /usr/bin/python3 fotobox
 pip install --upgrade pip
 cd <da wo das fotobox-Verzeichnis ist>/fotobox
 git pull
 python setup.py develop
 python -m fotobox -c fotobox.json
+
+
+
+git remote set-url origin git@bitbucket.org:pillmuncher/fotobox.git
