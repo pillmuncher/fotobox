@@ -9,6 +9,7 @@ import RPi.GPIO as GPIO
 from .util import inject
 
 
+GPIO.cleanup()
 GPIO.setmode(GPIO.BOARD)
 time.sleep(1)
 print("\n\n**************************\n\n")
