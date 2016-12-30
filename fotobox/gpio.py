@@ -8,31 +8,30 @@ import RPi.GPIO as GPIO
 
 from .util import inject
 
-
 GPIO.setmode(GPIO.BOARD)
 time.sleep(1)
 
 
 class PushButton:
 
-    def __init__(self, port, bounce_time):
-        def handle(port):
-            if GPIO.input(port):
-                print("\n**************************")
-                print("Button(port={0}) losgelassen.".format(port))
-                self.released()
+    def __init__(self, port, hold_time, bounce_time):
+        def handle(_):
+            t = time.time() + hold_time
+            while t < time.time():
+                time.sleep(.1)
+                if GPIO.input(port):
+                    self.cancelled()
+                    return
             else:
-                print("\n**************************")
-                print("Button(port={0}) gedrückt.".format(port))
-                self.pressed()
+                self.pushed()
         GPIO.setup(port, GPIO.IN, pull_up_down=GPIO.PUD_UP)
         GPIO.add_event_detect(
-            port, GPIO.BOTH, bouncetime=bounce_time, callback=handle)
+            port, GPIO.FALLING, bouncetime=bounce_time, callback=handle)
 
-    def pressed(self):
+    def pushed(self):
         pass
 
-    def released(self):
+    def cancelled(self):
         pass
 
 

@@ -152,30 +152,6 @@ def count_down(number, conf):
                     glob.glob, random.choice, play_sound)
 
 
-def detect_push(previous, current):
-    if is_pressed(previous) and is_released(current):
-        return ButtonPushed(button=previous.button,
-                            pressed=previous.time,
-                            released=current.time)
-    else:
-        return current
-
-
-def non_overlapping(previous, current):
-    # assert previous.pressed <= current.pressed
-    if previous.released <= current.pressed:
-        return current
-    else:
-        return previous
-
-
-def to_command(pushed):
-    if pushed.button.hold >= pushed.released - pushed.pressed:
-        return pushed.button.command
-    else:
-        return pushed.button.log
-
-
 def paste_to(image, photo, i, layout):
     image.paste(photo.resize(layout.size, Image.ANTIALIAS), layout.box[i])
 
@@ -183,28 +159,20 @@ def paste_to(image, photo, i, layout):
 class Button(PushButton):
 
     def __init__(self, command, event, bounce_time, scheduler):
-        super().__init__(event.port, bounce_time)
-        self.hold = event.hold
+        super().__init__(event.port, event.hold, bounce_time)
         self.command = command(code=event.code)
         self.log = Log(info=event.info)
         self.events = Subject()
-        self.pushes = (self
-                       .events
-                       .observe_on(scheduler)
-                       .scan(detect_push)
-                       .where(is_pushed)
-                       .distinct_until_changed())
 
-    def pressed(self):
-        self.events.on_next(ButtonPressed(time=time.time(), button=self))
+    def pushed(self):
+        self.events.on_next(self.command)
 
-    def released(self):
-        self.events.on_next(ButtonReleased(time=time.time(), button=self))
+    def cancelled(self):
+        self.events.on_next(self.log)
 
 
 @contextlib.contextmanager
 def bus_context(conf):
-    bus = Subject()
     blinker_ticks = Observable.interval(conf.blink.interval * 1000)
     montage_ticks = Observable.interval(conf.montage.interval * 1000)
     event_loop = EventLoopScheduler()
@@ -213,17 +181,12 @@ def bus_context(conf):
                Button(Quit, conf.event.reboot, conf.bounce_time, event_loop),
                Button(Quit, conf.event.shutdown, conf.bounce_time, event_loop)]
     commands = (Observable
-                .merge([button.pushes for button in buttons])
-                .scan(non_overlapping)
-                      # seed=ButtonPushed(button=None, pressed=0, released=0))
-                .distinct_until_changed()
-                .map(to_command)
+                .merge([button.events for button in buttons])
                 .merge(ThreadPoolScheduler(max_workers=conf.workers),
                        blinker_ticks.map(const(Blink())),
-                       montage_ticks.map(const(ShowRandomMontage())),
-                       bus))
+                       montage_ticks.map(const(ShowRandomMontage()))))
     with commands.subscribe(on_next=inject(handle_command, conf)):
-        yield bus
+        yield
 
 
 def run(conf):
@@ -236,12 +199,8 @@ def run(conf):
         switch_on(conf.led.green)
         with display_context(size=conf.screen.size) as conf.display:
             with camera_context(size=conf.photo.size) as conf.camera:
-                with bus_context(conf) as conf.bus:
+                with bus_context(conf):
                     try:
-                        result = conf.exit_code.get()
-                        print("\n**************************\n")
-                        print(result)
-                        print("\n**************************\n")
-                        # return result
+                        return conf.exit_code.get()
                     finally:
                         lightshow(1, conf)
