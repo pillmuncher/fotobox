@@ -204,35 +204,26 @@ class Button(PushButton):
 
 @contextlib.contextmanager
 def bus_context(conf):
+    bus = Subject()
+    blinker_ticks = Observable.interval(conf.blink.interval)
+    montage_ticks = Observable.interval(conf.montage.interval)
     event_loop = EventLoopScheduler()
     buttons = [Button(Shoot, conf.event.shoot, conf.bounce_time, event_loop),
                Button(Quit, conf.event.quit, conf.bounce_time, event_loop),
                Button(Quit, conf.event.reboot, conf.bounce_time, event_loop),
                Button(Quit, conf.event.shutdown, conf.bounce_time, event_loop)]
-    blinker_ticks = Observable.interval(conf.blink.interval)
-    montage_ticks = Observable.interval(conf.montage.interval)
-    bus = Subject()
-    handler = (Observable
-               .merge([button.pushes for button in buttons])
-               .scan(non_overlapping,
-                     seed=ButtonPushed(button=None, pressed=0, released=0))
-               .distinct_until_changed()
-               .map(to_command)
-               .merge(ThreadPoolScheduler(max_workers=conf.workers),
-                      blinker_ticks.map(const(Blink())),
-                      montage_ticks.map(const(ShowRandomMontage())),
-                      bus)
-               .subscribe(on_next=inject(handle_command, conf)))
-    try:
+    commands = (Observable
+                .merge([button.pushes for button in buttons])
+                .scan(non_overlapping,
+                      seed=ButtonPushed(button=None, pressed=0, released=0))
+                .distinct_until_changed()
+                .map(to_command)
+                .merge(ThreadPoolScheduler(max_workers=conf.workers),
+                       blinker_ticks.map(const(Blink())),
+                       montage_ticks.map(const(ShowRandomMontage())),
+                       bus))
+    with commands.subscribe(on_next=inject(handle_command, conf)):
         yield bus
-    finally:
-        pass
-        # handler.dispose()
-        # bus.dispose()
-        # montage_ticks.dispose()
-        # blinker_ticks.dispose()
-        # for button in buttons:
-            # button.events.dispose()
 
 
 def run(conf):
