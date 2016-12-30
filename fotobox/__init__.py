@@ -49,6 +49,7 @@ def handle_log(cmd, conf):
 
 @handle_command.register(Shoot)
 def handle_shoot(cmd, conf):
+    print("click!!!")
     with conf.shooting_lock:
         with flash(conf.photo.lights), conf.camera.preview():
             timestamp = time.strftime(conf.photo.time_mask)
@@ -79,6 +80,7 @@ def handle_quit(cmd, conf):
 
 @handle_command.register(ShowRandomMontage)
 def handle_show_montage(cmd, conf):
+    print("show montage!!!")
     if conf.shooting_lock.acquire(blocking=False):
         try:
             thread_thru(conf.montage.glob_mask,
