@@ -20,6 +20,7 @@ class PushButton:
             print("\n**************************\n")
             print("handler auf port {} aufegrufen".format(port))
             print("\n**************************\n")
+            time.sleep(.2)
             if GPIO.input(port):
                 self.released()
             else:
