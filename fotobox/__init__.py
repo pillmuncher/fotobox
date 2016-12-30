@@ -162,7 +162,7 @@ def detect_push(previous, current):
 
 
 def non_overlapping(previous, current):
-    assert previous.pressed <= current.pressed
+    # assert previous.pressed <= current.pressed
     if previous.released <= current.pressed:
         return current
     else:
