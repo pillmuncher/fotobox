@@ -96,6 +96,7 @@ def config(file_name):
     c.printout.image = Image.open(c.printout.image_file)
     c.printout.layout = Config({})
     c.printout.layout.width, c.printout.layout.height = c.printout.image.size
+    c.printout.layout.size = c.printout.image.size
     pad_width = c.printout.layout.width + c.printout.margin.padding
     pad_height = c.printout.layout.height + c.printout.margin.padding
     c.printout.layout.box = [
