@@ -80,8 +80,8 @@ def handle_quit(cmd, conf):
 
 @handle_command.register(ShowRandomMontage)
 def handle_show_montage(cmd, conf):
-    print("show montage!!!")
     if conf.shooting_lock.acquire(blocking=False):
+        print("show montage!!!")
         try:
             thread_thru(conf.montage.glob_mask,
                         glob.glob,
@@ -136,7 +136,7 @@ def show_overlay(file_name, position, seconds, conf):
     height = ((img.size[1] + 15) // 16) * 16
     pad = Image.new("RGB", (width, height))
     pad.paste(img, position)
-    with conf.camera.overlay(pad.tostring(), size=img.size, alpha=64, layer=3):
+    with conf.camera.overlay(pad.tobytes(), size=img.size, alpha=64, layer=3):
         time.sleep(seconds)
 
 
