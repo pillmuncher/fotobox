@@ -2,6 +2,7 @@
 # coding: utf-8
 
 import contextlib
+import time
 
 import RPi.GPIO as GPIO
 
@@ -9,6 +10,7 @@ from .util import inject
 
 
 GPIO.setmode(GPIO.BOARD)
+time.sleep(1)
 
 
 class PushButton:
