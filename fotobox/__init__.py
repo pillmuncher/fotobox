@@ -205,8 +205,8 @@ class Button(PushButton):
 @contextlib.contextmanager
 def bus_context(conf):
     bus = Subject()
-    blinker_ticks = Observable.interval(conf.blink.interval)
-    montage_ticks = Observable.interval(conf.montage.interval)
+    blinker_ticks = Observable.interval(conf.blink.interval * 1000)
+    montage_ticks = Observable.interval(conf.montage.interval * 1000)
     event_loop = EventLoopScheduler()
     buttons = [Button(Shoot, conf.event.shoot, conf.bounce_time, event_loop),
                Button(Quit, conf.event.quit, conf.bounce_time, event_loop),
