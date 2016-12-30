@@ -17,7 +17,7 @@ class PushButton:
     def __init__(self, port, hold_time, bounce_time):
         def handle(_):
             t = time.time() + hold_time
-            while t < time.time():
+            while t > time.time():
                 time.sleep(.1)
                 if GPIO.input(port):
                     self.cancelled()
