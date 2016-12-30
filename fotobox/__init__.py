@@ -237,9 +237,6 @@ def run(conf):
         with display_context(size=conf.screen.size) as conf.display:
             with camera_context(size=conf.photo.size) as conf.camera:
                 with bus_context(conf) as conf.bus:
-                    print("bus:", conf.bus)
-                    time.sleep(7)
-                    return
                     try:
                         conf.exit_code.get()
                     finally:
