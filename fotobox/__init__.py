@@ -153,7 +153,6 @@ def count_down(number, conf):
 
 
 def detect_push(previous, current):
-    assert previous.time <= current.time
     if is_pressed(previous) and is_released(current):
         return ButtonPushed(button=previous.button,
                             pressed=previous.time,
