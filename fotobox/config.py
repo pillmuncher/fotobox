@@ -56,6 +56,9 @@ def config(file_name):
     c.photo.countdown.smile.image_file = resource_path(
         c.photo.countdown.smile.image_file,
     )
+    c.photo.countdown.songs.glob_mask = resource_path(
+        c.photo.countdown.songs.glob_mask,
+    )
     c.montage.watermark.image_file = resource_path(
         c.montage.watermark.image_file,
     )
