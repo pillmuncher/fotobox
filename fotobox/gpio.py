@@ -8,6 +8,9 @@ import RPi.GPIO as GPIO
 from .util import inject
 
 
+GPIO.setmode(GPIO.BOARD)
+
+
 class PushButton:
 
     def __init__(self, port, bounce_time):
@@ -45,7 +48,6 @@ def flash(lights):
 
 @contextlib.contextmanager
 def context():
-    GPIO.setmode(GPIO.BOARD)
     try:
         yield
     finally:
