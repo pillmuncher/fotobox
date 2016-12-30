@@ -11,6 +11,9 @@ from .util import inject
 
 GPIO.setmode(GPIO.BOARD)
 time.sleep(1)
+print("\n\n**************************\n\n")
+print("GPIO.setmode() ausgeführt und 1 sec gewartet!")
+print("\n\n**************************\n\n")
 
 
 class PushButton:
