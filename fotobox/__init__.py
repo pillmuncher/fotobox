@@ -238,6 +238,10 @@ def run(conf):
             with camera_context(size=conf.photo.size) as conf.camera:
                 with bus_context(conf) as conf.bus:
                     try:
-                        conf.exit_code.get()
+                        result = conf.exit_code.get()
+                        print("\n**************************\n")
+                        print(result)
+                        print("\n**************************\n")
+                        # return result
                     finally:
                         lightshow(1, conf)
