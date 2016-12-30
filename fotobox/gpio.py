@@ -17,18 +17,16 @@ class PushButton:
 
     def __init__(self, port, bounce_time):
         def handle(port):
-            time.sleep(.01)
-            if GPIO.input(port) != GPIO.LOW:
-                return
-                self.pressed()
             print("\n**************************\n")
             print("handler auf port {} aufegrufen".format(port))
             print("\n**************************\n")
-            GPIO.wait_for_edge(port, GPIO.RISING)
-            self.released()
-        GPIO.setup(port, GPIO.IN)
+            if GPIO.input(port):
+                self.released()
+            else:
+                self.pressed()
+        GPIO.setup(port, GPIO.IN, pull_up_down=GPIO.PUD_UP)
         GPIO.add_event_detect(
-            port, GPIO.FALLING, bouncetime=bounce_time, callback=handle)
+            port, GPIO.BOTH, bouncetime=bounce_time, callback=handle)
 
     def pressed(self):
         pass
