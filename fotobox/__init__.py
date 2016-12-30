@@ -207,17 +207,17 @@ def bus_context(conf):
     bus = Subject()
     blinker_ticks = Observable.interval(conf.blink.interval * 1000)
     montage_ticks = Observable.interval(conf.montage.interval * 1000)
-    # event_loop = EventLoopScheduler()
-    # buttons = [Button(Shoot, conf.event.shoot, conf.bounce_time, event_loop),
-               # Button(Quit, conf.event.quit, conf.bounce_time, event_loop),
-               # Button(Quit, conf.event.reboot, conf.bounce_time, event_loop),
-               # Button(Quit, conf.event.shutdown, conf.bounce_time, event_loop)]
+    event_loop = EventLoopScheduler()
+    buttons = [Button(Shoot, conf.event.shoot, conf.bounce_time, event_loop),
+               Button(Quit, conf.event.quit, conf.bounce_time, event_loop),
+               Button(Quit, conf.event.reboot, conf.bounce_time, event_loop),
+               Button(Quit, conf.event.shutdown, conf.bounce_time, event_loop)]
     commands = (Observable
-                # .merge([button.pushes for button in buttons])
-                # .scan(non_overlapping)
+                .merge([button.pushes for button in buttons])
+                .scan(non_overlapping)
                       # seed=ButtonPushed(button=None, pressed=0, released=0))
-                # .distinct_until_changed()
-                # .map(to_command)
+                .distinct_until_changed()
+                .map(to_command)
                 .merge(ThreadPoolScheduler(max_workers=conf.workers),
                        blinker_ticks.map(const(Blink())),
                        montage_ticks.map(const(ShowRandomMontage())),

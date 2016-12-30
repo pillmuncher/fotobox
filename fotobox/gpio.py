@@ -17,6 +17,9 @@ class PushButton:
 
     def __init__(self, port, bounce_time):
         def handle(port):
+            print("\n**************************\n")
+            print("handler auf port {} aufegrufen".format(port))
+            print("\n**************************\n")
             if GPIO.input(port):
                 self.released()
             else:
