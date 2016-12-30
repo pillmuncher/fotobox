@@ -214,8 +214,8 @@ def bus_context(conf):
                Button(Quit, conf.event.shutdown, conf.bounce_time, event_loop)]
     commands = (Observable
                 .merge([button.pushes for button in buttons])
-                .scan(non_overlapping,
-                      seed=ButtonPushed(button=None, pressed=0, released=0))
+                .scan(non_overlapping)
+                      # seed=ButtonPushed(button=None, pressed=0, released=0))
                 .distinct_until_changed()
                 .map(to_command)
                 .merge(ThreadPoolScheduler(max_workers=conf.workers),
