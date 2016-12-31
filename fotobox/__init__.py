@@ -66,7 +66,8 @@ def handle_shoot(cmd, conf):
                 time.sleep(5)
             file_name = conf.montage.file_mask.format(timestamp)
             (Image
-             .blend(montage, conf.montage.watermark.image, 0.25)
+             .blend(montage.resize(conf.screen.size, Image.ANTIALIAS),
+                    conf.montage.watermark.image, 0.25)
              .save(file_name))
             show_montage(file_name, conf)
         printout.save(conf.printout.file_mask.format(timestamp))
@@ -126,8 +127,8 @@ def show_montage(file_name, conf):
         file_name,
         load_image,
         # inject(resize_image, conf.screen.size),
-        inject(Image.Image.resize, conf.screen.size, Image.ANTIALIAS),
-        Image.Image.tobytes,
+        # inject(Image.Image.resize, conf.screen.size, Image.ANTIALIAS),
+        # Image.Image.tobytes,
         inject(show_image, conf.display, conf.screen.offset))
 
 
