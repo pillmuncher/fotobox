@@ -126,7 +126,7 @@ def show_montage(file_name, conf):
     thread_thru(
         file_name,
         load_image,
-        # inject(resize_image, conf.screen.size),
+        # inject(r:esize_image, conf.screen.size),
         # inject(Image.Image.resize, conf.screen.size, Image.ANTIALIAS),
         # Image.Image.tobytes,
         inject(show_image, conf.display, conf.screen.offset))
