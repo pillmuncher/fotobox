@@ -9,4 +9,4 @@ python -m fotobox fotobox.json
 
 
 
-git remote set-url origin git@bitbucket.org:pillmuncher/fotobox.git
+git remote set-url origin git@github.org:pillmuncher/fotobox.git
